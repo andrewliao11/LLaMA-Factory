@@ -96,6 +96,14 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         return loss
 
     @override
+    def evaluate(self, **kwargs):
+        padding_side = self.processing_class.padding_side
+        self.processing_class.padding_side = "left"
+        outputs = super().evaluate(**kwargs)
+        self.processing_class.padding_side = padding_side
+        return outputs
+        
+    @override
     def prediction_step(
         self,
         model: "torch.nn.Module",
@@ -109,8 +117,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         Subclass and override to inject custom behavior.
         """
         labels = inputs["labels"] if "labels" in inputs else None
+        
         if self.args.predict_with_generate:
-            assert self.tokenizer.padding_side == "left", "This method only accepts left-padded tensor."
+            assert self.processing_class.padding_side == "left", "This method only accepts left-padded tensor."
+            
             labels = labels.detach().clone() if labels is not None else None  # backup labels
             prompt_len, label_len = inputs["input_ids"].size(-1), inputs["labels"].size(-1)
             if prompt_len > label_len:
@@ -119,10 +129,13 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                 inputs["labels"] = inputs["labels"][:, :prompt_len]
 
         loss, generated_tokens, _ = super().prediction_step(  # ignore the returned labels (may be truncated)
-            model, inputs, prediction_loss_only=prediction_loss_only, ignore_keys=ignore_keys
+            model, inputs, 
+            prediction_loss_only=prediction_loss_only, 
+            ignore_keys=ignore_keys
         )
+        
         if generated_tokens is not None and self.args.predict_with_generate:
-            generated_tokens[:, :prompt_len] = self.tokenizer.pad_token_id
+            generated_tokens[:, :prompt_len] = self.processing_class.pad_token_id
             generated_tokens = generated_tokens.contiguous()
 
         return loss, generated_tokens, labels
@@ -131,8 +144,9 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         r"""
         Pads the tensor to the same length as the target tensor.
         """
-        assert self.tokenizer.pad_token_id is not None, "Pad token is required."
-        padded_tensor = self.tokenizer.pad_token_id * torch.ones_like(tgt_tensor)
+        assert self.processing_class.pad_token_id is not None, "Pad token is required."
+        #padded_tensor = self.processing_class.pad_token_id * torch.ones_like(tgt_tensor)
+        padded_tensor = IGNORE_INDEX * torch.ones_like(tgt_tensor)
         padded_tensor[:, -src_tensor.shape[-1] :] = src_tensor  # adopt left-padding
         return padded_tensor.contiguous()  # in contiguous memory
 
@@ -142,6 +156,8 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
         A custom behavior that not contained in Seq2SeqTrainer.
         """
+        import ipdb
+        ipdb.set_trace()
         if not self.is_world_process_zero():
             return
 
@@ -149,20 +165,20 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         logger.info_rank0(f"Saving prediction results to {output_prediction_file}")
 
         labels = np.where(
-            predict_results.label_ids != IGNORE_INDEX, predict_results.label_ids, self.tokenizer.pad_token_id
+            predict_results.label_ids != IGNORE_INDEX, predict_results.label_ids, self.processing_class.pad_token_id
         )
         preds = np.where(
-            predict_results.predictions != IGNORE_INDEX, predict_results.predictions, self.tokenizer.pad_token_id
+            predict_results.predictions != IGNORE_INDEX, predict_results.predictions, self.processing_class.pad_token_id
         )
 
         for i in range(len(preds)):
-            pad_len = np.nonzero(preds[i] != self.tokenizer.pad_token_id)[0]
+            pad_len = np.nonzero(preds[i] != self.processing_class.pad_token_id)[0]
             if len(pad_len):  # move pad token to last
                 preds[i] = np.concatenate((preds[i][pad_len[0] :], preds[i][: pad_len[0]]), axis=-1)
 
-        decoded_inputs = self.tokenizer.batch_decode(dataset["input_ids"], skip_special_tokens=True)
-        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_inputs = self.processing_class.batch_decode(dataset["input_ids"], skip_special_tokens=True)
+        decoded_labels = self.processing_class.batch_decode(labels, skip_special_tokens=True)
+        decoded_preds = self.processing_class.batch_decode(preds, skip_special_tokens=True)
 
         with open(output_prediction_file, "w", encoding="utf-8") as writer:
             res: List[str] = []

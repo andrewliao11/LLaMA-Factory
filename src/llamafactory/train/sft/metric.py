@@ -61,6 +61,43 @@ def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "tor
 
 
 @dataclass
+class ComputeClsAccuracy:
+    r"""
+    Computes classification accuracy and supports `batch_eval_metrics`.
+    """
+
+    tokenizer: "PreTrainedTokenizer"
+    def _dump(self) -> Optional[Dict[str, float]]:
+        result = None
+        if hasattr(self, "score_dict"):
+            result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
+
+        self.score_dict = {"accuracy": []}
+        return result
+
+    def __post_init__(self):
+        self._dump()
+
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+        
+        mask = preds == IGNORE_INDEX
+        preds[mask] = self.tokenizer.pad_token_id
+        preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        
+        mask = labels == IGNORE_INDEX
+        labels[mask] = self.tokenizer.pad_token_id
+        labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+        
+        for pred, label in zip(preds, labels):
+            is_correct = label.lower() in pred.lower()
+            self.score_dict["accuracy"].append(is_correct)
+        
+        if compute_result:
+            return self._dump()
+    
+    
+@dataclass
 class ComputeAccuracy:
     r"""
     Computes accuracy and supports `batch_eval_metrics`.

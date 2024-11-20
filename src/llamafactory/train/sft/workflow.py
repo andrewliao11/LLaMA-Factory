@@ -23,7 +23,7 @@ from ...extras.misc import get_logits_processor
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor
+from .metric import ComputeAccuracy, ComputeSimilarity, ComputeClsAccuracy, eval_logit_processor
 from .trainer import CustomSeq2SeqTrainer
 
 
@@ -67,8 +67,12 @@ def run_sft(
 
     # Metric utils
     metric_module = {}
+    
     if training_args.predict_with_generate:
-        metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
+        if finetuning_args.eval_predictions_as_cls:
+            metric_module["compute_metrics"] = ComputeClsAccuracy(tokenizer=tokenizer)
+        else:        
+            metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
