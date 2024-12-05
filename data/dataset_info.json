@@ -1,4 +1,46 @@
 {
+  "visual_grid_world_5x5_optimal_trace": {
+    "file_name": "visual_grid_world/5x5/optimal_trace/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "visual_grid_world_5x5_optimal_search_trace": {
+    "file_name": "visual_grid_world/5x5/optimal_search_trace/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "visual_grid_world_5x5_search_trace_and_reflection": {
+    "file_name": "visual_grid_world/5x5/search_trace_and_reflection/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
   "identity": {
     "file_name": "identity.json"
   },

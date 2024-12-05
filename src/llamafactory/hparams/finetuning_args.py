@@ -310,6 +310,10 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
     Arguments pertaining to which techniques we are going to fine-tuning with.
     """
 
+    eval_predictions_as_actions: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to evaluate predictions as actions."},
+    )
     pure_bf16: bool = field(
         default=False,
         metadata={"help": "Whether or not to train model in purely bf16 precision (without AMP)."},

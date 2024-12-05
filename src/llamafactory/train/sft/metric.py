@@ -17,7 +17,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, List, Any
 
 import numpy as np
 import torch
@@ -88,6 +88,93 @@ class ComputeAccuracy:
             return self._dump()
 
 
+import gymnasium as gym
+import sys
+sys.path.append("/h/andrewliao/research/visual_reasoning_pomdp/data_gen")
+import env
+import ipdb
+
+def extract_coordinates(input_text):
+    import re
+    # Find the content within the <answer> tag
+    answer_match = re.search(r'<answer>(.*?)</answer>', input_text, re.DOTALL)
+    
+    if not answer_match:
+        return []
+    
+    # Extract all coordinates from GoTo commands
+    coordinates = re.findall(r'GoTo\((\d+), (\d+)\)', answer_match.group(1))
+    
+    # Convert coordinates to tuples of integers
+    return [(int(x), int(y)) for x, y in coordinates]
+
+
+@dataclass
+class ComputeSuccess:
+    tokenizer: "PreTrainedTokenizer"
+    gym_env_name: str = "FrozenLakeMultiGoalGotoEnv-v0"
+    gym_env_args: List[Dict[str, Any]] = None
+    
+    def _dump(self) -> Optional[Dict[str, float]]:
+        result = None
+        if hasattr(self, "score_dict"):
+            result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
+
+        self.score_dict = {"success_rate": [], "avg_path_cost": []}
+        return result
+
+    def __post_init__(self):
+        self._dump()
+
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+
+        preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
+        labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
+        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=False)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=False)
+
+        for i, (pred, label, env_args) in enumerate(zip(decoded_preds, decoded_labels, self.gym_env_args)):
+            env = gym.make(
+                self.gym_env_name, 
+                desc=env_args["desc"], 
+                n_goals_to_reach=env_args["n_goals_to_reach"], 
+                render_mode="ansi"
+            )
+            env.reset()
+            print(env.render())
+            
+            unwrapped_env = env
+            while isinstance(unwrapped_env, gym.Wrapper):
+                unwrapped_env = unwrapped_env.env
+            
+            # Parse action
+            coordinates = extract_coordinates(pred)
+            ipdb.set_trace()
+            if len(coordinates) == 0:
+                self.score_dict["success_rate"].append(False)
+                self.score_dict["avg_path_cost"].append(np.inf)
+            else:
+                    
+                action_plan = []
+                for coord in coordinates:
+                    action_plan.append({"goto": (int(coord[0]), int(coord[1]))})
+                    
+                
+                path_cost = 0.
+                for step in action_plan:
+                    obs, reward, _, _, info = env.step(step)
+                    path_cost += len(info["path"])
+                    
+                self.score_dict["success_rate"].append(reward > 0)
+                self.score_dict["avg_path_cost"].append(path_cost)
+            
+
+        if compute_result:
+            return self._dump()
+        
+        
 @dataclass
 class ComputeSimilarity:
     r"""

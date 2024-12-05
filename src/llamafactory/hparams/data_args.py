@@ -123,6 +123,13 @@ class DataArguments:
             )
         },
     )
+    gym_env_name: Optional[str] = field(
+        default=None, metadata={"help": "The name of the gym environment to use for evaluation."}
+    )
+    gym_env_args_path: Optional[str] = field(
+        default=None, metadata={"help": "The path to the gym environment arguments to use for evaluation."}
+    )
+
 
     def __post_init__(self):
         def split_arg(arg):

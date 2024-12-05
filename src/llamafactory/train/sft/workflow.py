@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from typing import TYPE_CHECKING, List, Optional
 
 from ...data import SFTDataCollatorWith4DAttentionMask, get_dataset, get_template_and_fix_tokenizer
@@ -23,7 +24,7 @@ from ...extras.misc import get_logits_processor
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor
+from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, ComputeSuccess
 from .trainer import CustomSeq2SeqTrainer
 
 
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
 
     from ...hparams import DataArguments, FinetuningArguments, GeneratingArguments, ModelArguments
 
+import ipdb
 
 def run_sft(
     model_args: "ModelArguments",
@@ -41,6 +43,7 @@ def run_sft(
     generating_args: "GeneratingArguments",
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
+    
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
@@ -68,7 +71,13 @@ def run_sft(
     # Metric utils
     metric_module = {}
     if training_args.predict_with_generate:
-        metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
+        if finetuning_args.eval_predictions_as_actions:
+            metric_module["compute_metrics"] = ComputeSuccess(
+                tokenizer=tokenizer, 
+                gym_env_name=data_args.gym_env_name, 
+                gym_env_args=json.load(open(data_args.gym_env_args_path)))
+        else:
+            metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
