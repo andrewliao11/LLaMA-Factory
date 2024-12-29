@@ -310,6 +310,10 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
     Arguments pertaining to which techniques we are going to fine-tuning with.
     """
 
+    log_top_k_preds: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to log the top-k predictions."},
+    )
     eval_predictions_as_actions: bool = field(
         default=False,
         metadata={"help": "Whether or not to evaluate predictions as actions."},

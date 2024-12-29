@@ -1,0 +1,254 @@
+{
+  "vgw_test": {
+    "file_name": "vgw/test.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_large_train_02": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-19-10-45-41/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_large_train_01": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-19-10-46-30/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_08": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-19-20-59-53/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_07": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-19-20-25-00/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_06": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-19-20-02-07/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_05": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-19-20-01-45/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_04": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-17-22-38-33/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_03": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-17-22-38-44/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_02": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-17-22-38-49/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_reflection_right_after_train_01": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-17-22-38-58/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_optimal_trace_and_reflection_right_after_train": {
+    "file_name": "vgw/optimal_trace_and_reflection_right_after/2024-12-11-15-47-30/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_optimal_trace_and_reflection_train": {
+    "file_name": "vgw/optimal_trace_and_reflection/2024-12-10-23-44-19/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_solution_only_large_train": {
+    "file_name": "vgw/solution_only/2024-12-19-10-10-43/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_solution_only_train": {
+    "file_name": "vgw/solution_only/2024-12-11-11-22-25/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_solution_only_eval": {
+    "file_name": "vgw/solution_only/2024-12-11-11-22-25/val/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_optimal_trace_train": {
+    "file_name": "vgw/optimal_trace/2024-12-19-09-11-20/train/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }, 
+  "vgw_optimal_trace_eval": {
+    "file_name": "vgw/optimal_trace/2024-12-19-09-11-20/val/data.json", 
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "images": "images"
+    }, 
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  }
+}

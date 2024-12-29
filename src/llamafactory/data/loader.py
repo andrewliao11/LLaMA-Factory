@@ -202,13 +202,20 @@ def _get_preprocessed_dataset(
             desc="Running tokenizer on dataset",
         )
 
-    dataset = dataset.map(
-        preprocess_func,
-        batched=True,
-        batch_size=data_args.preprocessing_batch_size,
-        remove_columns=column_names,
-        **kwargs,
-    )
+    # Try to preprocess the dataset with the given batch size
+    while True:
+        try:
+            dataset = dataset.map(
+                preprocess_func,
+                batched=True,
+                batch_size=data_args.preprocessing_batch_size,
+                remove_columns=column_names,
+                **kwargs,
+            )
+            break
+        except RuntimeError:
+            data_args.preprocessing_batch_size = max(1, int(data_args.preprocessing_batch_size / 2))
+            print("Try again with smaller batch size.")
 
     if training_args.should_log:
         try:

@@ -25,7 +25,7 @@ from ...extras.misc import calculate_tps, get_logits_processor
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, ComputeSuccess
+from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, topk_logit_processor, ComputeSuccess, DummyMetrics
 from .trainer import CustomSeq2SeqTrainer
 
 
@@ -47,6 +47,8 @@ def run_sft(
     generating_args: "GeneratingArguments",
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
+    
+    training_args.learning_rate = float(training_args.learning_rate)
     
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
@@ -85,6 +87,10 @@ def run_sft(
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
+    elif finetuning_args.log_top_k_preds:
+        metric_module["compute_metrics"] = DummyMetrics(tokenizer=tokenizer)
+        metric_module["preprocess_logits_for_metrics"] = topk_logit_processor
+    
 
     # Initialize our Trainer
     trainer = CustomSeq2SeqTrainer(
@@ -125,6 +131,12 @@ def run_sft(
     # Evaluation
     if training_args.do_eval:
         metrics = trainer.evaluate(metric_key_prefix="eval", **gen_kwargs)
+        
+        if finetuning_args.log_top_k_preds:
+            eval_topk_tokens = metrics.pop("eval_topk_tokens")
+            eval_topk_probs = metrics.pop("eval_topk_probs")
+            trainer.save_logprobs(dataset_module["eval_dataset"], {"topk_tokens": eval_topk_tokens, "topk_probs": eval_topk_probs})
+            
         if training_args.predict_with_generate:  # eval_loss will be wrong if predict_with_generate is enabled
             metrics.pop("eval_loss", None)
         trainer.log_metrics("eval", metrics)

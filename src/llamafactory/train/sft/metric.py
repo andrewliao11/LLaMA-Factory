@@ -18,6 +18,7 @@
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional, List, Any
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -44,6 +45,38 @@ if is_rouge_available():
     from rouge_chinese import Rouge
 
 
+def topk_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "torch.Tensor":
+    if isinstance(logits, (list, tuple)):
+        if logits[0].dim() == 3:  # (batch_size, seq_len, vocab_size)
+            logits = logits[0]
+        else:  # moe models have aux loss
+            logits = logits[1]
+
+    if logits.dim() != 3:
+        raise ValueError("Cannot process the logits.")
+
+    probs = torch.nn.functional.softmax(logits, dim=-1)
+    shifted_probs = probs[:, :-1, :]
+    shifted_labels = labels[:, 1:]
+    mask = shifted_labels != IGNORE_INDEX
+    
+    label_tokens = []
+    label_probs = []
+    for m, prob, label in zip(mask, shifted_probs, shifted_labels):
+        topk_probs, topk_tokens = prob[m].topk(5, dim=-1)
+        
+        selected_tokens = torch.cat([label[m].unsqueeze(1), topk_tokens], dim=1)
+        seq_len, vocab_size = prob[m].shape
+        ind = (torch.arange(seq_len).to(label.device) * vocab_size) + label[m]
+        selected_prob = prob[m].reshape(-1)[ind]
+        selected_prob = torch.cat([selected_prob.unsqueeze(1), topk_probs], dim=1)
+        label_tokens.append(selected_tokens)
+        label_probs.append(selected_prob)
+    
+        
+    return torch.stack(label_probs, dim=0), torch.stack(label_tokens, dim=0)
+
+
 def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "torch.Tensor":
     r"""
     Computes the token with the largest likelihood to reduce memory footprint.
@@ -60,6 +93,39 @@ def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "tor
     return torch.argmax(logits, dim=-1)
 
 
+
+@dataclass
+class DummyMetrics:
+    tokenizer: "PreTrainedTokenizer"
+
+    def _dump(self) -> Optional[Dict[str, float]]:
+        result = None
+        if hasattr(self, "data_dict"):
+            result = {k: v.tolist() for k, v in self.data_dict.items()}
+
+        self.data_dict = {}
+        return result
+
+    def __post_init__(self):
+        self._dump()
+
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        topk_probs, topk_tokens = numpify(eval_preds.predictions)
+        padded_topk_tokens = []
+        
+        for probs, tokens in zip(topk_probs, topk_tokens):
+            
+            tokens = np.where(tokens != IGNORE_INDEX, tokens, self.tokenizer.pad_token_id)
+            decoded_tokens = self.tokenizer.batch_decode(tokens.reshape(-1))
+            decoded_tokens = np.array(decoded_tokens).reshape(-1, tokens.shape[1])
+            padded_topk_tokens.append(decoded_tokens)
+            
+        padded_topk_tokens = np.array(padded_topk_tokens)
+        self.data_dict.update({"topk_tokens": padded_topk_tokens, "topk_probs": topk_probs})
+        if compute_result:
+            return self._dump()
+        
+    
 @dataclass
 class ComputeAccuracy:
     r"""
@@ -97,13 +163,14 @@ import ipdb
 def extract_coordinates(input_text):
     import re
     # Find the content within the <answer> tag
-    answer_match = re.search(r'<answer>(.*?)</answer>', input_text, re.DOTALL)
+    #answer_match = re.search(r'<answer>(.*?)</answer>', input_text, re.DOTALL)
+    answer_match = re.findall(r'<answer>(.*?)</answer>', input_text, re.DOTALL)[-1]
     
-    if not answer_match:
-        return []
+    #if not answer_match:
+    #    return []
     
     # Extract all coordinates from GoTo commands
-    coordinates = re.findall(r'GoTo\((\d+), (\d+)\)', answer_match.group(1))
+    coordinates = re.findall(r'GoTo\((\d+), (\d+)\)', answer_match)
     
     # Convert coordinates to tuples of integers
     return [(int(x), int(y)) for x, y in coordinates]
@@ -119,8 +186,9 @@ class ComputeSuccess:
         result = None
         if hasattr(self, "score_dict"):
             result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
+            result.update({"n_samples": len(self.score_dict["success_rate"])})
 
-        self.score_dict = {"success_rate": [], "avg_path_cost": []}
+        self.score_dict = {"success_rate": [], "avg_path_cost": [], "valid_path": [], "optimal_rate": []}
         return result
 
     def __post_init__(self):
@@ -133,9 +201,10 @@ class ComputeSuccess:
         preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
         labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
         decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=False)
+        decoded_preds_concise = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=False)
 
-        for i, (pred, label, env_args) in enumerate(zip(decoded_preds, decoded_labels, self.gym_env_args)):
+        for i, (pred_concise, pred, label, env_args) in enumerate(zip(decoded_preds_concise, decoded_preds, decoded_labels, self.gym_env_args)):
             env = gym.make(
                 self.gym_env_name, 
                 desc=env_args["desc"], 
@@ -148,28 +217,47 @@ class ComputeSuccess:
             unwrapped_env = env
             while isinstance(unwrapped_env, gym.Wrapper):
                 unwrapped_env = unwrapped_env.env
+                
+            _, optimal_cost, _, _ = unwrapped_env.find_minimum_cost_solution()
+            if optimal_cost == np.inf:
+                continue
             
             # Parse action
-            coordinates = extract_coordinates(pred)
-            ipdb.set_trace()
+            try:
+                coordinates = extract_coordinates(pred)
+            except IndexError:
+                coordinates = []
+                
+            print(pred_concise)
             if len(coordinates) == 0:
+                self.score_dict["optimal_rate"].append(False)
                 self.score_dict["success_rate"].append(False)
-                self.score_dict["avg_path_cost"].append(np.inf)
+                self.score_dict["valid_path"].append(False)
             else:
                     
                 action_plan = []
                 for coord in coordinates:
                     action_plan.append({"goto": (int(coord[0]), int(coord[1]))})
                     
-                
+                total_reward = 0.
                 path_cost = 0.
+                valid_path = True
                 for step in action_plan:
                     obs, reward, _, _, info = env.step(step)
-                    path_cost += len(info["path"])
                     
-                self.score_dict["success_rate"].append(reward > 0)
-                self.score_dict["avg_path_cost"].append(path_cost)
+                    total_reward += reward
+                    if info["action_failed"]:
+                        valid_path = False
+                        break
+                    
+                    path_cost += len(info["path"])
+                                
             
+                self.score_dict["optimal_rate"].append(total_reward > 0 and total_reward <= optimal_cost)
+                self.score_dict["success_rate"].append(total_reward > 0)
+                self.score_dict["valid_path"].append(valid_path)
+                if valid_path:
+                    self.score_dict["avg_path_cost"].append(path_cost)
 
         if compute_result:
             return self._dump()

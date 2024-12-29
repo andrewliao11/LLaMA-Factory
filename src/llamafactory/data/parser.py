@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Literal, Optional, Sequence
 
 from transformers.utils import cached_file
 
-from ..extras.constants import DATA_CONFIG
+from ..extras.constants import DATA_CONFIG, EXTRA_DATA_CONFIG
 from ..extras.misc import use_modelscope, use_openmind
 
 
@@ -85,6 +85,7 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
             config_path = cached_file(path_or_repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
+            extra_config_path = os.path.join(dataset_dir, EXTRA_DATA_CONFIG)
 
         try:
             with open(config_path) as f:
@@ -92,8 +93,15 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         except Exception as err:
             if len(dataset_names) != 0:
                 raise ValueError(f"Cannot open {config_path} due to {str(err)}.")
-
             dataset_info = None
+            
+        # Try loading extra custom dataset info
+        try:
+            with open(extra_config_path) as f:
+                extra_dataset_info = json.load(f)
+                dataset_info.update(extra_dataset_info)
+        except Exception as err:
+            pass
 
     dataset_list: List["DatasetAttr"] = []
     for name in dataset_names:

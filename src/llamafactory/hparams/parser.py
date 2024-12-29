@@ -311,23 +311,29 @@ def get_train_args(args: Optional[Dict[str, Any]] = None) -> _TRAIN_CLS:
     else:
         can_resume_from_checkpoint = True
 
+    last_checkpoint = get_last_checkpoint(training_args.output_dir)    
     if (
         training_args.resume_from_checkpoint is None
         and training_args.do_train
         and os.path.isdir(training_args.output_dir)
-        and not training_args.overwrite_output_dir
+        #and not training_args.overwrite_output_dir
+        and last_checkpoint is not None
         and can_resume_from_checkpoint
     ):
+        
+        """
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
         if last_checkpoint is None and any(
             os.path.isfile(os.path.join(training_args.output_dir, name)) for name in CHECKPOINT_NAMES
         ):
             raise ValueError("Output directory already exists and is not empty. Please set `overwrite_output_dir`.")
-
+        
+        
         if last_checkpoint is not None:
-            training_args.resume_from_checkpoint = last_checkpoint
-            logger.info_rank0(f"Resuming training from {training_args.resume_from_checkpoint}.")
-            logger.info_rank0("Change `output_dir` or use `overwrite_output_dir` to avoid.")
+        """
+        training_args.resume_from_checkpoint = last_checkpoint
+        logger.info_rank0(f"Resuming training from {training_args.resume_from_checkpoint}.")
+        logger.info_rank0("Change `output_dir` or use `overwrite_output_dir` to avoid.")
 
     if (
         finetuning_args.stage in ["rm", "ppo"]

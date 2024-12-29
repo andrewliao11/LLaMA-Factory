@@ -85,6 +85,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         Fixes the loss value for transformers 4.46.0.
         https://github.com/huggingface/transformers/blob/v4.46.0/src/transformers/trainer.py#L3605
         """
+        
         loss = super().compute_loss(model, inputs, return_outputs, **kwargs)
         if is_transformers_version_equal_to_4_46() and not getattr(self, "model_accepts_loss_kwargs", False):
             # other model should not scale the loss
@@ -144,6 +145,14 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         padded_tensor = self.processing_class.pad_token_id * torch.ones_like(tgt_tensor)
         padded_tensor[:, -src_tensor.shape[-1] :] = src_tensor  # adopt left-padding
         return padded_tensor.contiguous()  # in contiguous memory
+
+    def save_logprobs(self, dataset: "Dataset", predict_results) -> None:
+        if not self.is_world_process_zero():
+            return
+
+        output_prediction_file = os.path.join(self.args.output_dir, "topk_logprobs.jsonl")
+        logger.info_rank0(f"Saving prediction results to {output_prediction_file}")
+        np.savez(output_prediction_file, topk_tokens=np.array(predict_results["topk_tokens"]), topk_probs=np.array(predict_results["topk_probs"]))
 
     def save_predictions(self, dataset: "Dataset", predict_results: "PredictionOutput") -> None:
         r"""
