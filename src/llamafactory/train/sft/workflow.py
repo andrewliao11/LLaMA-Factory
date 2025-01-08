@@ -15,7 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import json
+import uuid
+import wandb
 from typing import TYPE_CHECKING, List, Optional
 
 from ...data import SFTDataCollatorWith4DAttentionMask, get_dataset, get_template_and_fix_tokenizer
@@ -39,6 +42,9 @@ import ipdb
 logger = get_logger(__name__)
 
 
+def is_main_process():
+    return getattr(os.environ, "LOCAL_RANK", "0") == "0"
+    
 def run_sft(
     model_args: "ModelArguments",
     data_args: "DataArguments",
@@ -47,7 +53,24 @@ def run_sft(
     generating_args: "GeneratingArguments",
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
-    
+
+    if is_main_process() and "wandb" in training_args.report_to:
+        from dataclasses import dataclass, asdict
+        p = os.path.join(training_args.output_dir, "wandb_id")
+        if os.path.exists(p):
+            unique_id = open(p).read().strip()
+        else:
+            unique_id = uuid.uuid4().hex[:8]
+            open(p, "w").write(unique_id)
+        
+        config = {}
+        config.update(asdict(model_args))
+        config.update(asdict(data_args))
+        config.update(training_args.to_dict())
+        config.update(asdict(finetuning_args))
+        config.update(asdict(generating_args))
+        wandb.init(resume="allow", id=unique_id, project=os.getenv("WANDB_PROJECT", "huggingface"), config=config, name=training_args.run_name)
+        
     training_args.learning_rate = float(training_args.learning_rate)
     
     tokenizer_module = load_tokenizer(model_args)

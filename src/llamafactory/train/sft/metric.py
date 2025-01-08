@@ -163,14 +163,13 @@ import ipdb
 def extract_coordinates(input_text):
     import re
     # Find the content within the <answer> tag
-    #answer_match = re.search(r'<answer>(.*?)</answer>', input_text, re.DOTALL)
     answer_match = re.findall(r'<answer>(.*?)</answer>', input_text, re.DOTALL)[-1]
     
     #if not answer_match:
     #    return []
     
     # Extract all coordinates from GoTo commands
-    coordinates = re.findall(r'GoTo\((\d+), (\d+)\)', answer_match)
+    coordinates = re.findall(r'GoTo\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)', answer_match) #re.findall(r'GoTo\((\d+), (\d+)\)', answer_match)
     
     # Convert coordinates to tuples of integers
     return [(int(x), int(y)) for x, y in coordinates]
