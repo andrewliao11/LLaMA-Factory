@@ -85,7 +85,7 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
             config_path = cached_file(path_or_repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
-            extra_config_path = os.path.join(dataset_dir, EXTRA_DATA_CONFIG)
+            extra_config_path = EXTRA_DATA_CONFIG #os.path.join(dataset_dir, EXTRA_DATA_CONFIG)
 
         try:
             with open(config_path) as f:

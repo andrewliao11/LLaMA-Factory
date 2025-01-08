@@ -34,7 +34,7 @@ CHECKPOINT_NAMES = {
 CHOICES = ["A", "B", "C", "D"]
 
 DATA_CONFIG = "dataset_info.json"
-EXTRA_DATA_CONFIG = "extra_dataset_info.json"
+EXTRA_DATA_CONFIG = "/h/andrewliao/research/visual_reasoning_pomdp/data_gen/my_dataset_info.json"
 
 DEFAULT_TEMPLATE = defaultdict(str)
 
