@@ -157,7 +157,7 @@ class ComputeAccuracy:
 import gymnasium as gym
 import sys
 sys.path.append("/h/andrewliao/research/visual_reasoning_pomdp/data_gen")
-import env
+import my_env
 import ipdb
 
 def extract_coordinates(input_text):

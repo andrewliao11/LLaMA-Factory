@@ -101,10 +101,13 @@ def run_sft(
     metric_module = {}
     if training_args.predict_with_generate:
         if finetuning_args.eval_predictions_as_actions:
+            
+            gym_env_args = json.load(open(data_args.gym_env_args_path))
+            gym_env_args = [{"desc": [_ for _ in env.split("\n") if len(_) > 0]} for env in gym_env_args]
             metric_module["compute_metrics"] = ComputeSuccess(
                 tokenizer=tokenizer, 
                 gym_env_name=data_args.gym_env_name, 
-                gym_env_args=json.load(open(data_args.gym_env_args_path)))
+                gym_env_args=gym_env_args)
         else:
             metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
     elif finetuning_args.compute_accuracy:
