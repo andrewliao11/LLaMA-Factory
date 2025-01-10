@@ -207,7 +207,8 @@ class ComputeSuccess:
             env = gym.make(
                 self.gym_env_name, 
                 desc=env_args["desc"], 
-                n_goals_to_reach=env_args["n_goals_to_reach"], 
+                #n_goals_to_reach=env_args["n_goals_to_reach"], 
+                n_goals_to_collect=env_args["n_goals_to_collect"], 
                 render_mode="ansi"
             )
             env.reset()
@@ -217,7 +218,8 @@ class ComputeSuccess:
             while isinstance(unwrapped_env, gym.Wrapper):
                 unwrapped_env = unwrapped_env.env
                 
-            _, optimal_cost, _, _ = unwrapped_env.find_minimum_cost_solution()
+            #_, optimal_cost, _, _ = unwrapped_env.find_minimum_cost_solution()
+            _, optimal_cost = unwrapped_env.find_all_minimum_cost_solutions()
             if optimal_cost == np.inf:
                 continue
             
@@ -252,7 +254,8 @@ class ComputeSuccess:
                     path_cost += len(info["path"])
                                 
             
-                self.score_dict["optimal_rate"].append(total_reward > 0 and total_reward <= optimal_cost)
+                #self.score_dict["optimal_rate"].append(total_reward > 0 and total_reward <= optimal_cost)
+                self.score_dict["optimal_rate"].append(total_reward > 0 and path_cost <= optimal_cost)
                 self.score_dict["success_rate"].append(total_reward > 0)
                 self.score_dict["valid_path"].append(valid_path)
                 if valid_path:

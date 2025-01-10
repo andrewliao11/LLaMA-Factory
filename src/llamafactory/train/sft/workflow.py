@@ -19,6 +19,7 @@ import os
 import json
 import uuid
 import wandb
+from collections import Counter
 from typing import TYPE_CHECKING, List, Optional
 
 from ...data import SFTDataCollatorWith4DAttentionMask, get_dataset, get_template_and_fix_tokenizer
@@ -103,7 +104,9 @@ def run_sft(
         if finetuning_args.eval_predictions_as_actions:
             
             gym_env_args = json.load(open(data_args.gym_env_args_path))
-            gym_env_args = [{"desc": [_ for _ in env.split("\n") if len(_) > 0]} for env in gym_env_args]
+            gym_env_args = [
+                {"desc": [_ for _ in env.split("\n") if len(_) > 0], 
+                 "n_goals_to_collect": Counter(env)["G"]} for env in gym_env_args]
             metric_module["compute_metrics"] = ComputeSuccess(
                 tokenizer=tokenizer, 
                 gym_env_name=data_args.gym_env_name, 
