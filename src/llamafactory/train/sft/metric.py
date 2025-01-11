@@ -184,10 +184,46 @@ class ComputeSuccess:
     def _dump(self) -> Optional[Dict[str, float]]:
         result = None
         if hasattr(self, "score_dict"):
-            result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
-            result.update({"n_samples": len(self.score_dict["success_rate"])})
+            result = {}
+            
+            metric_keys = ["success_rate", "n_regrets", "n_regrets_positive", "n_regrets_negative"]
+            for k in metric_keys:
+                result.update({f"overall/{k}": float(np.mean(self.score_dict[k]))})
+                
+                
+            problem_type = ["grid_size", "n_goals_to_collect"]
+            unique_grid_size = np.unique(self.score_dict["grid_size"])
+            unique_n_goals_to_collect = np.unique(self.score_dict["n_goals_to_collect"])
+            
+            for size in unique_grid_size:
+                mask = np.array(self.score_dict["grid_size"]) == size
+                if np.sum(mask) == 0:
+                    continue
+                for k in metric_keys:
+                    result.update({f"grid_size={size}/{k}": float(np.mean(np.array(self.score_dict[k])[mask]))})
+                    
+                for n_goals in unique_n_goals_to_collect:
+                    mask = np.logical_and(np.array(self.score_dict["grid_size"]) == size, np.array(self.score_dict["n_goals_to_collect"]) == n_goals)
+                    if np.sum(mask) == 0:
+                        continue
+                    for k in metric_keys:
+                        result.update({f"grid_size={size}/n_goals={n_goals}/{k}": float(np.mean(np.array(self.score_dict[k])[mask]))})
+            
+            #result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
+            #result.update({"n_samples": len(self.score_dict["success_rate"])})
 
-        self.score_dict = {"success_rate": [], "avg_path_cost": [], "valid_path": [], "optimal_rate": []}
+        self.score_dict = {
+            "success_rate": [], 
+            "avg_path_cost": [], 
+            "valid_path": [], 
+            "optimal_rate": [], 
+            # for deeper analysis
+            "grid_size": [], 
+            "n_goals_to_collect": [],
+            "n_regrets": [],
+            "n_regrets_positive": [],
+            "n_regrets_negative": [],
+        }
         return result
 
     def __post_init__(self):
@@ -230,6 +266,11 @@ class ComputeSuccess:
                 coordinates = []
                 
             print(pred_concise)
+            self.score_dict["n_goals_to_collect"].append(env_args["n_goals_to_collect"])
+            self.score_dict["grid_size"].append(len(env_args["desc"]))
+            self.score_dict["n_regrets"].append(pred_concise.count("wait"))                     # wait... checking ... this is
+            self.score_dict["n_regrets_negative"].append(pred_concise.count("this is not correct"))      # wait... checking ... this is not correct
+            self.score_dict["n_regrets_positive"].append(pred_concise.count("this is correct"))          # wait... checking ... this is correct
             if len(coordinates) == 0:
                 self.score_dict["optimal_rate"].append(False)
                 self.score_dict["success_rate"].append(False)
