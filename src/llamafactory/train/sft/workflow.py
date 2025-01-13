@@ -65,6 +65,9 @@ def run_sft(
             open(p, "w").write(unique_id)
         
         config = {}
+        if "SLURM_JOB_ID" in os.environ:
+            config["SLURM_JOB_ID"] = os.environ["SLURM_JOB_ID"]
+            
         config.update(asdict(model_args))
         config.update(asdict(data_args))
         config.update(training_args.to_dict())
