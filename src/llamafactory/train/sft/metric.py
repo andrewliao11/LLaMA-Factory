@@ -156,7 +156,8 @@ class ComputeAccuracy:
 
 import gymnasium as gym
 import sys
-sys.path.append("/h/andrewliao/research/visual_reasoning_pomdp/data_gen")
+from pathlib import Path
+sys.path.append(str(Path(__file__).parents[5].joinpath("data_gen").resolve()))
 import my_env
 import ipdb
 
