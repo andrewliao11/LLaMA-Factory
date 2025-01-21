@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional, List, Any
 from copy import deepcopy
@@ -353,6 +354,61 @@ class ComputeSimilarity:
 
             bleu_score = sentence_bleu([list(label)], list(pred), smoothing_function=SmoothingFunction().method3)
             self.score_dict["bleu-4"].append(round(bleu_score * 100, 4))
+
+        if compute_result:
+            return self._dump()
+
+
+@dataclass
+class AnswerAccuracy:
+    r"""Computes accuracy metrics based on the string extracted using a regex from both the label and prediction."""
+
+    tokenizer: "PreTrainedTokenizer"
+    answer_regex: str = r'\\boxed{(.*?)}'
+
+    def _dump(self) -> Optional[Dict[str, float]]:
+        result = None
+        if hasattr(self, "score_dict"):
+            num_valid_label = self.score_dict["num_samples"] - self.score_dict["num_invalid_label"]
+            result = {
+                "answer_accuracy": self.score_dict["num_correct"] / num_valid_label * 100.,
+                "invalid_pred_pct": self.score_dict["num_invalid_pred"] / num_valid_label * 100.,
+                "invalid_samples_pct": self.score_dict["num_invalid_label"] / self.score_dict["num_samples"] * 100.,
+            }
+
+        self.score_dict = {"num_invalid_label": 0, "num_invalid_pred": 0, "num_samples": 0, "num_correct": 0}
+        return result
+
+    def __post_init__(self):
+        self._regex = re.compile(self.answer_regex)
+        self._dump()
+
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+
+        preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
+        labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
+
+        decoded_preds: list[str] = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_labels: list[str] = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        self.score_dict["num_samples"] += len(decoded_preds)
+        for pred_text, label_text in zip(decoded_preds, decoded_labels):
+
+            try:
+                gt = self._regex.search(label_text).group(1)
+            except AttributeError:
+                self.score_dict["num_invalid_label"] += 1
+                continue
+            
+            try:
+                pred = self._regex.search(pred_text).group(1)
+            except AttributeError:
+                self.score_dict["num_invalid_pred"] += 1
+                continue
+            
+            if gt.lower() == pred.lower():
+                self.score_dict["num_correct"] +=1
 
         if compute_result:
             return self._dump()

@@ -29,7 +29,7 @@ from ...extras.misc import calculate_tps, get_logits_processor
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, topk_logit_processor, ComputeSuccess, DummyMetrics
+from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, topk_logit_processor, ComputeSuccess, DummyMetrics, AnswerAccuracy
 from .trainer import CustomSeq2SeqTrainer
 
 
@@ -104,8 +104,9 @@ def run_sft(
     # Metric utils
     metric_module = {}
     if training_args.predict_with_generate:
-        if finetuning_args.eval_predictions_as_actions:
-            
+        if "/gqa_variants/" in data_args.eval_dataset[0]:  # TODO: Hacky...
+            metric_module["compute_metrics"] = AnswerAccuracy(tokenizer=tokenizer, answer_regex=r"\\boxed{(.*?)}")
+        elif finetuning_args.eval_predictions_as_actions:
             gym_env_args = json.load(open(data_args.gym_env_args_path))
             gym_env_args = [
                 {"desc": [_ for _ in env.split("\n") if len(_) > 0], 
