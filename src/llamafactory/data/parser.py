@@ -97,9 +97,16 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
             
         # Try loading extra custom dataset info
         try:
-            with open(extra_config_path) as f:
-                extra_dataset_info = json.load(f)
-                dataset_info.update(extra_dataset_info)
+            if not isinstance(extra_config_path, list):
+                extra_config_path = [extra_config_path]
+            for p in extra_config_path:
+                if os.path.exists(p):
+                    with open(p) as f:
+                        extra_dataset_info = json.load(f)
+                        dataset_info.update(extra_dataset_info)
+                else:
+                    print(f"Extra dataset config {p} not found.")
+                    
         except Exception as err:
             pass
 

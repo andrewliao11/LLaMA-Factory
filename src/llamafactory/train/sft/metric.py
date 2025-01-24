@@ -19,6 +19,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional, List, Any
 from copy import deepcopy
+import re
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -93,6 +95,73 @@ def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "tor
     return torch.argmax(logits, dim=-1)
 
 
+@dataclass
+class ComputeMetricsVQA:
+    tokenizer: "PreTrainedTokenizer"
+    data_sources: List[str]
+    
+    def get_eval_mode(self, data_source):
+        if "cv_bench" in data_source:
+            return "mcq"
+        elif "gqa" in data_source:
+            return "vqa"
+        else: 
+            raise NotImplementedError(f"Unknown data source: {data_source}")
+        
+    def _dump(self) -> Optional[Dict[str, float]]:
+        result = None
+        if hasattr(self, "data_dict"):
+            result = defaultdict(lambda: [])
+            for data_source, hit_or_not in zip(self.data_sources, self.data_dict["hit_or_not"]):
+                result[data_source].append(hit_or_not)
+                
+            result = {k: float(np.mean(v)) for k, v in result.items()}
+
+        self.data_dict = {}
+        return result
+    
+    def extract_vqa(self, text):
+        for pattern in [r'\\boxed\{(.*?)\}']:
+            res = re.search(pattern, text)
+            if res is not None:
+                return res.group(1).strip().lower()
+    
+    def extract_mcq(self, text):
+        for pattern in [r'\((.*?)\)', r'\\boxed\{(.*?)\}']:
+            res = re.search(pattern, text)
+            if res is not None:
+                return res.group(1).strip().lower()
+        
+    def __post_init__(self):
+        self._dump()
+    
+    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
+        
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+        preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
+        labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
+        
+        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+        
+        assert len(decoded_preds) == len(self.data_sources), "Mismatch between the number of predictions and data sources."
+        
+        hit_or_not = []
+        for pred, label, data_source in zip(decoded_preds, decoded_labels, self.data_sources):
+            eval_mode = self.get_eval_mode(data_source)
+            if eval_mode == "mcq":
+                hit = self.extract_mcq(pred) == self.extract_mcq(label)
+            elif eval_mode == "vqa":
+                hit = self.extract_vqa(pred) == self.extract_vqa(label)
+            else:
+                raise NotImplementedError(f"Unknown eval mode: {eval_mode}")
+            
+            hit_or_not.append(hit)
+                
+        self.data_dict.update({"hit_or_not": hit_or_not})
+        
+        if compute_result:
+            return self._dump()
 
 @dataclass
 class DummyMetrics:

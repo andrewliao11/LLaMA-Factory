@@ -16,6 +16,7 @@ import os
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from typing import Dict, Optional
+from pathlib import Path
 
 from peft.utils import SAFETENSORS_WEIGHTS_NAME as SAFE_ADAPTER_WEIGHTS_NAME
 from peft.utils import WEIGHTS_NAME as ADAPTER_WEIGHTS_NAME
@@ -34,7 +35,12 @@ CHECKPOINT_NAMES = {
 CHOICES = ["A", "B", "C", "D"]
 
 DATA_CONFIG = "dataset_info.json"
-EXTRA_DATA_CONFIG = "/h/andrewliao/research/visual_reasoning_pomdp/data_gen/my_dataset_info.json"
+PROJECT_ROOT = Path(__file__).parents[4]
+EXTRA_DATA_CONFIG = [
+    str(PROJECT_ROOT / "data_gen/toy_dataset_info.json"), 
+    str(PROJECT_ROOT / "gqa_data_gen/gqa_dataset_info.json"), 
+    str(PROJECT_ROOT / "gqa_data_gen/cv_bench_dataset_info.json"), 
+]
 
 DEFAULT_TEMPLATE = defaultdict(str)
 

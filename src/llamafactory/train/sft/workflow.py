@@ -23,13 +23,14 @@ from collections import Counter
 from typing import TYPE_CHECKING, List, Optional
 
 from ...data import SFTDataCollatorWith4DAttentionMask, get_dataset, get_template_and_fix_tokenizer
+from ...data.parser import get_dataset_list
 from ...extras.constants import IGNORE_INDEX
 from ...extras.logging import get_logger
 from ...extras.misc import calculate_tps, get_logits_processor
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, topk_logit_processor, ComputeSuccess, DummyMetrics
+from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor, topk_logit_processor, ComputeSuccess, DummyMetrics, ComputeMetricsVQA
 from .trainer import CustomSeq2SeqTrainer
 
 
@@ -104,18 +105,13 @@ def run_sft(
     # Metric utils
     metric_module = {}
     if training_args.predict_with_generate:
-        if finetuning_args.eval_predictions_as_actions:
+        data_sources = []
+        for eval_dataset_name in data_args.eval_dataset:
+            filename = str(get_dataset_list([eval_dataset_name, ], data_args.dataset_dir)[0])
+            size_of_eval_dataset = len(json.load(open(filename)))
+            data_sources += [eval_dataset_name, ] * min(data_args.max_samples, size_of_eval_dataset)
             
-            gym_env_args = json.load(open(data_args.gym_env_args_path))
-            gym_env_args = [
-                {"desc": [_ for _ in env.split("\n") if len(_) > 0], 
-                 "n_goals_to_collect": Counter(env)["G"]} for env in gym_env_args]
-            metric_module["compute_metrics"] = ComputeSuccess(
-                tokenizer=tokenizer, 
-                gym_env_name=data_args.gym_env_name, 
-                gym_env_args=gym_env_args)
-        else:
-            metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
+        metric_module["compute_metrics"] = ComputeMetricsVQA(tokenizer=tokenizer, data_sources=data_sources)
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor
