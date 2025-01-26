@@ -123,6 +123,7 @@ def get_forbidden_modules(config: "PretrainedConfig", finetuning_args: "Finetuni
     """
     model_type = getattr(config, "model_type", None)
     forbidden_modules = set()
+    
     if model_type in ["llava", "llava_next", "llava_next_video", "paligemma", "video_llava"]:
         if finetuning_args.freeze_vision_tower:
             forbidden_modules.add("vision_tower")

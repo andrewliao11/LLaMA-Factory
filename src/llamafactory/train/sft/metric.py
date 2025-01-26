@@ -115,7 +115,7 @@ class ComputeMetricsVQA:
             for data_source, hit_or_not in zip(self.data_sources, self.data_dict["hit_or_not"]):
                 result[data_source].append(hit_or_not)
                 
-            result = {k: float(np.mean(v)) for k, v in result.items()}
+            result = {f"Acc_{k}": float(np.mean(v)) for k, v in result.items()}
 
         self.data_dict = {}
         return result

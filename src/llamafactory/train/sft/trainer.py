@@ -66,6 +66,24 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             self.accelerator.clip_grad_norm_ = MethodType(clip_grad_norm_old_version, self.accelerator)
             self.add_callback(BAdamCallback)
 
+    def save_model(self, output_dir=None, _internal_call=False):
+        super().save_model(output_dir, _internal_call)
+        
+        if self.is_world_process_zero() and self.finetuning_args.submit_eval_during_training:
+            work_dir = self.args.output_dir
+            command = f"python main.py evaluate_experiment {work_dir} {self.finetuning_args.finetuning_type} {output_dir} --sampled_eval=True"
+            print(f"Save checkpoint: {output_dir}\nExecute: {command}")
+            os.system(command)
+            
+            if self.finetuning_args.remove_optimizer_states:
+                # remove all the optimizer states (except for the last one) to save disk space
+                from pathlib import Path
+                paths = list(Path(self.args.output_dir).glob("checkpoint-*/global_step*"))
+                last_path = sorted(paths, key=lambda x: int(x.name.replace("global_step", "")))[-1]
+                for p in paths:
+                    if p != last_path:
+                        os.system(f"rm -rf {p}")
+                        
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
         if self.optimizer is None:

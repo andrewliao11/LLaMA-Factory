@@ -310,6 +310,14 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
     Arguments pertaining to which techniques we are going to fine-tuning with.
     """
 
+    remove_optimizer_states: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to remove all the optimizer states except for the last one."},
+    )
+    submit_eval_during_training: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to submit evaluation during training."},
+    )
     log_top_k_preds: bool = field(
         default=False,
         metadata={"help": "Whether or not to log the top-k predictions."},

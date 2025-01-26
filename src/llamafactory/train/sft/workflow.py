@@ -109,7 +109,11 @@ def run_sft(
         for eval_dataset_name in data_args.eval_dataset:
             filename = str(get_dataset_list([eval_dataset_name, ], data_args.dataset_dir)[0])
             size_of_eval_dataset = len(json.load(open(filename)))
-            data_sources += [eval_dataset_name, ] * min(data_args.max_samples, size_of_eval_dataset)
+            
+            if data_args.max_samples is not None:
+                data_sources += [eval_dataset_name, ] * min(data_args.max_samples, size_of_eval_dataset)
+            else:
+                data_sources += [eval_dataset_name, ] * size_of_eval_dataset
             
         metric_module["compute_metrics"] = ComputeMetricsVQA(tokenizer=tokenizer, data_sources=data_sources)
     elif finetuning_args.compute_accuracy:
