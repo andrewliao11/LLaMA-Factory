@@ -79,10 +79,11 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                 # remove all the optimizer states (except for the last one) to save disk space
                 from pathlib import Path
                 paths = list(Path(self.args.output_dir).glob("checkpoint-*/global_step*"))
-                last_path = sorted(paths, key=lambda x: int(x.name.replace("global_step", "")))[-1]
-                for p in paths:
-                    if p != last_path:
-                        os.system(f"rm -rf {p}")
+                if len(paths) > 1:
+                    last_path = sorted(paths, key=lambda x: int(x.name.replace("global_step", "")))[-1]
+                    for p in paths:
+                        if p != last_path:
+                            os.system(f"rm -rf {p}")
                         
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
