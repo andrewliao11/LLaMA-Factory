@@ -83,6 +83,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                     last_path = sorted(paths, key=lambda x: int(x.name.replace("global_step", "")))[-1]
                     for p in paths:
                         if p != last_path:
+                            print(f"Remove optimizer states: {p}")
                             os.system(f"rm -rf {p}")
                         
     @override

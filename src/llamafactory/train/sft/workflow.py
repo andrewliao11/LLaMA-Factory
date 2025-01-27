@@ -44,6 +44,7 @@ import ipdb
 logger = get_logger(__name__)
 
 
+# NOTE: Seems that this does not always work as expected
 def is_main_process():
     return getattr(os.environ, "LOCAL_RANK", "0") == "0"
     

@@ -113,9 +113,15 @@ class ComputeMetricsVQA:
         if hasattr(self, "data_dict"):
             result = defaultdict(lambda: [])
             for data_source, hit_or_not in zip(self.data_sources, self.data_dict["hit_or_not"]):
-                result[data_source].append(hit_or_not)
+                result[f"Acc_{data_source}"].append(hit_or_not)
                 
-            result = {f"Acc_{k}": float(np.mean(v)) for k, v in result.items()}
+            for data_source, response_length in zip(self.data_sources, self.data_dict["response_length"]):
+                result[f"Res_Len_{data_source}"].append(response_length)
+                
+            for data_source, follow_valid_format in zip(self.data_sources, self.data_dict["follow_valid_format"]):
+                result[f"Res_Valid_{data_source}"].append(follow_valid_format)
+                
+            result = {k: float(np.mean(v)) for k, v in result.items()}
 
         self.data_dict = {}
         return result
@@ -147,18 +153,31 @@ class ComputeMetricsVQA:
         assert len(decoded_preds) == len(self.data_sources), "Mismatch between the number of predictions and data sources."
         
         hit_or_not = []
+        response_length = []
+        follow_valid_format = []
         for pred, label, data_source in zip(decoded_preds, decoded_labels, self.data_sources):
+            # NOTE: this part is still not ideal. In MCQ question, 
+            # Say the question is "what is the red object? (A) car, ..." and the answer is (A), and the model answer \boxed{car}, it's gonna considered as incorrect here
+            # TODO: we need to make the evaluation more robust. Currently, the workaround is to have a extra function in ROOT_DIR/main.py that handle this.
             eval_mode = self.get_eval_mode(data_source)
+            valid_format = True 
             if eval_mode == "mcq":
                 hit = self.extract_mcq(pred) == self.extract_mcq(label)
+                if self.extract_mcq(pred) not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
+                    valid_format = False
+                    
             elif eval_mode == "vqa":
                 hit = self.extract_vqa(pred) == self.extract_vqa(label)
             else:
                 raise NotImplementedError(f"Unknown eval mode: {eval_mode}")
             
             hit_or_not.append(hit)
+            follow_valid_format.append(valid_format)
+            response_length.append(len(self.tokenizer.encode(pred, add_special_tokens=False)))
                 
         self.data_dict.update({"hit_or_not": hit_or_not})
+        self.data_dict.update({"response_length": response_length})
+        self.data_dict.update({"follow_valid_format": follow_valid_format})
         
         if compute_result:
             return self._dump()
