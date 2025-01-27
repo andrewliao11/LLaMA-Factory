@@ -95,6 +95,36 @@ def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "tor
     return torch.argmax(logits, dim=-1)
 
 
+
+alphabet_options = [
+    '(a)',
+    '(b)',
+    '(c)',
+    '(d)',
+    '(e)',
+    '(f)',
+    '(g)',
+    '(h)',
+    '(i)',
+    '(j)',
+    '(k)',
+    '(l)',
+    '(m)',
+    '(n)',
+    '(o)',
+    '(p)',
+    '(q)',
+    '(r)',
+    '(s)',
+    '(t)',
+    '(u)',
+    '(v)',
+    '(w)',
+    '(x)',
+    '(y)',
+    '(z)'
+]
+
 @dataclass
 class ComputeMetricsVQA:
     tokenizer: "PreTrainedTokenizer"
@@ -133,7 +163,7 @@ class ComputeMetricsVQA:
                 return res.group(1).strip().lower()
     
     def extract_mcq(self, text):
-        for pattern in [r'\((.*?)\)', r'\\boxed\{(.*?)\}']:
+        for pattern in [r'\\boxed\{(.*?)\}']:
             res = re.search(pattern, text)
             if res is not None:
                 return res.group(1).strip().lower()
@@ -144,9 +174,12 @@ class ComputeMetricsVQA:
     def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[Dict[str, float]]:
         
         preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+        inputs = eval_preds.inputs
+        inputs = np.where(inputs != IGNORE_INDEX, inputs, self.tokenizer.pad_token_id)
         preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
         labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
         
+        decoded_inputs = self.tokenizer.batch_decode(inputs, skip_special_tokens=True)
         decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
         
@@ -155,19 +188,33 @@ class ComputeMetricsVQA:
         hit_or_not = []
         response_length = []
         follow_valid_format = []
-        for pred, label, data_source in zip(decoded_preds, decoded_labels, self.data_sources):
-            # NOTE: this part is still not ideal. In MCQ question, 
-            # Say the question is "what is the red object? (A) car, ..." and the answer is (A), and the model answer \boxed{car}, it's gonna considered as incorrect here
-            # TODO: we need to make the evaluation more robust. Currently, the workaround is to have a extra function in ROOT_DIR/main.py that handle this.
+        for pred, label, input_prompt, data_source in zip(decoded_preds, decoded_labels, decoded_inputs, self.data_sources):
             eval_mode = self.get_eval_mode(data_source)
             valid_format = True 
             if eval_mode == "mcq":
-                hit = self.extract_mcq(pred) == self.extract_mcq(label)
-                if self.extract_mcq(pred) not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
+                extracted_pred = self.extract_mcq(pred)
+                extracted_label = self.extract_mcq(label)
+                
+                hit = extracted_pred == extracted_label
+                try:
+                    # NOTE: this part is still not ideal. In MCQ question, 
+                    # Say the question is "what is the red object? (A) car, ..." and the answer is (A), and the model answer \boxed{car}, it's gonna considered as incorrect here
+                    choices_mapping = re.findall(r"(\(.*?\).*?)\n", input_prompt)
+                    choices_mapping = {s.split(" ")[0].lower(): " ".join(s.split(" ")[1:]) for s in choices_mapping}
+                    if extracted_pred in choices_mapping.values():
+                        hit = extracted_pred == choices_mapping[extracted_label]
+                except Exception as e:
+                    pass
+                
+                if extracted_pred is None or extracted_pred not in alphabet_options:
                     valid_format = False
-                    
             elif eval_mode == "vqa":
-                hit = self.extract_vqa(pred) == self.extract_vqa(label)
+                extracted_pred = self.extract_vqa(pred)
+                extracted_label = self.extract_vqa(label)
+                hit = extracted_pred == extracted_label
+                
+                if extracted_pred is None:
+                    valid_format = False
             else:
                 raise NotImplementedError(f"Unknown eval mode: {eval_mode}")
             
