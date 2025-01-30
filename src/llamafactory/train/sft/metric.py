@@ -157,13 +157,13 @@ class ComputeMetricsVQA:
         return result
     
     def extract_vqa(self, text):
-        for pattern in [r'\\boxed\{(.*?)\}']:
+        for pattern in [r"<answer>(.*?)</answer>"]: #[r'\\boxed\{(.*?)\}']:
             res = re.search(pattern, text)
             if res is not None:
                 return res.group(1).strip().lower()
     
     def extract_mcq(self, text):
-        for pattern in [r'\\boxed\{(.*?)\}']:
+        for pattern in [r"<answer>(.*?)</answer>"]: #[r'\\boxed\{(.*?)\}']:
             res = re.search(pattern, text)
             if res is not None:
                 return res.group(1).strip().lower()

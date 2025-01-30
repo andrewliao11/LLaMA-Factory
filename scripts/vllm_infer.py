@@ -23,7 +23,7 @@ from llamafactory.extras.misc import get_device_count
 from llamafactory.extras.packages import is_pillow_available, is_vllm_available
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
-
+import ipdb
 
 if is_pillow_available():
     from PIL import Image
@@ -50,6 +50,8 @@ def vllm_infer(
     top_k: int = 50,
     max_new_tokens: int = 1024,
     repetition_penalty: float = 1.0,
+    batch_size: int = 16,
+    infer_dtype: str = "auto",
 ):
     r"""
     Performs batch generation using vLLM engine, which supports tensor parallelism.
@@ -70,6 +72,7 @@ def vllm_infer(
             top_k=top_k,
             max_new_tokens=max_new_tokens,
             repetition_penalty=repetition_penalty,
+            infer_dtype=infer_dtype
         )
     )
 
@@ -110,6 +113,7 @@ def vllm_infer(
         max_tokens=generating_args.max_new_tokens,
         skip_special_tokens=False,
     )
+    
     if model_args.adapter_name_or_path is not None:
         lora_request = LoRARequest("default", 1, model_args.adapter_name_or_path[0])
     else:
@@ -129,7 +133,15 @@ def vllm_infer(
     if isinstance(model_args.vllm_config, dict):
         engine_args.update(model_args.vllm_config)
 
-    results = LLM(**engine_args).generate(inputs, sampling_params, lora_request=lora_request)
+    
+    llm = LLM(**engine_args)
+    results = []
+    for i in range(0, len(inputs), batch_size):
+        # split the inputs to chunks to avoid OOM
+        batch_results = llm.generate(inputs[i : i + batch_size], sampling_params, lora_request=lora_request)
+        results.extend(batch_results)
+                
+    #results = llm.generate(inputs[:50], sampling_params, lora_request=lora_request)
     preds = [result.outputs[0].text for result in results]
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(prompts, preds, labels):
@@ -138,7 +150,6 @@ def vllm_infer(
     print("*" * 70)
     print(f"{len(prompts)} generated results have been saved at {save_name}.")
     print("*" * 70)
-
 
 if __name__ == "__main__":
     fire.Fire(vllm_infer)

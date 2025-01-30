@@ -73,7 +73,9 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             work_dir = self.args.output_dir
             command = f"python main.py evaluate_experiment {work_dir} {self.finetuning_args.finetuning_type} {output_dir} --sampled_eval=True"
             print(f"Save checkpoint: {output_dir}\nExecute: {command}")
-            os.system(command)
+            #os.system(command)
+            import subprocess
+            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             if self.finetuning_args.remove_optimizer_states:
                 # remove all the optimizer states (except for the last one) to save disk space
