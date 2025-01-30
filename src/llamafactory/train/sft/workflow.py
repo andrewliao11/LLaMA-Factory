@@ -165,8 +165,6 @@ def run_sft(
     # Evaluation
     if training_args.do_eval:
         metrics = trainer.evaluate(metric_key_prefix="eval", **gen_kwargs)
-<<<<<<< HEAD
-        
         if finetuning_args.log_top_k_preds:
             eval_topk_tokens = metrics.pop("eval_topk_tokens")
             eval_topk_probs = metrics.pop("eval_topk_probs")
@@ -174,8 +172,7 @@ def run_sft(
             
         if training_args.predict_with_generate:  # eval_loss will be wrong if predict_with_generate is enabled
             metrics.pop("eval_loss", None)
-=======
->>>>>>> upstream/main
+            
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
 
