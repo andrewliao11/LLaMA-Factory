@@ -40,6 +40,7 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "data_gen/toy_dataset_info.json"), 
     str(PROJECT_ROOT / "gqa_data_gen/gqa_dataset_info.json"), 
     str(PROJECT_ROOT / "gqa_data_gen/cv_bench_dataset_info.json"), 
+    str(PROJECT_ROOT / "gqa_data_gen/extra_dataset_info.json"), 
 ]
 
 DEFAULT_TEMPLATE = defaultdict(str)

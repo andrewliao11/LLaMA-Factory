@@ -170,6 +170,7 @@ def convert_sharegpt(
             logger.warning_rank0(f"Invalid role tag in {messages}.")
             broken_data = True
 
+
         aligned_messages.append(
             {"role": tag_mapping[message[dataset_attr.role_tag]], "content": message[dataset_attr.content_tag]}
         )

@@ -52,6 +52,7 @@ def vllm_infer(
     repetition_penalty: float = 1.0,
     batch_size: int = 16,
     infer_dtype: str = "auto",
+    image_resolution: int = 512 ** 2
 ):
     r"""
     Performs batch generation using vLLM engine, which supports tensor parallelism.
@@ -59,6 +60,7 @@ def vllm_infer(
     """
     model_args, data_args, _, generating_args = get_infer_args(
         dict(
+            image_resolution=image_resolution, 
             model_name_or_path=model_name_or_path,
             adapter_name_or_path=adapter_name_or_path,
             dataset=dataset,
@@ -133,6 +135,7 @@ def vllm_infer(
     if isinstance(model_args.vllm_config, dict):
         engine_args.update(model_args.vllm_config)
 
+    print(f"Engine args: {engine_args}")
     
     llm = LLM(**engine_args)
     results = []
@@ -141,7 +144,6 @@ def vllm_infer(
         batch_results = llm.generate(inputs[i : i + batch_size], sampling_params, lora_request=lora_request)
         results.extend(batch_results)
                 
-    #results = llm.generate(inputs[:50], sampling_params, lora_request=lora_request)
     preds = [result.outputs[0].text for result in results]
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(prompts, preds, labels):
