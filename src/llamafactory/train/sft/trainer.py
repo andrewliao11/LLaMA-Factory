@@ -77,7 +77,8 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             print(f"Save checkpoint: {output_dir}\nExecute: {command}")
             #os.system(command)
             import subprocess
-            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            parent_env = json.load(open(os.path.join(self.args.output_dir, "parent_env.json")))
+            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
             
             if self.finetuning_args.remove_optimizer_states:
                 # remove all the optimizer states (except for the last one) to save disk space
@@ -88,7 +89,8 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                     for p in paths:
                         if p != last_path:
                             print(f"Remove optimizer states: {p}")
-                            os.system(f"rm -rf {p}")
+                            command = f"rm -rf {p}"
+                            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
                         
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":

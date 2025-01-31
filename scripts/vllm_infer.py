@@ -45,7 +45,7 @@ def vllm_infer(
     top_k: int = 50,
     max_new_tokens: int = 1024,
     repetition_penalty: float = 1.0,
-    batch_size: int = 16,
+    max_num_seqs: int = 256,        # default: 256
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
     image_resolution: int = 512 * 512
@@ -123,6 +123,7 @@ def vllm_infer(
         "tensor_parallel_size": (get_device_count() // pipeline_parallel_size) or 1,
         "pipeline_parallel_size": pipeline_parallel_size,
         "disable_log_stats": True,
+        "max_num_seqs": max_num_seqs,
         "enable_lora": model_args.adapter_name_or_path is not None,
     }
     if template_obj.mm_plugin.__class__.__name__ != "BasePlugin":
@@ -134,12 +135,17 @@ def vllm_infer(
     print(f"Engine args: {engine_args}")
     
     llm = LLM(**engine_args)
+    results = llm.generate(inputs, sampling_params, lora_request=lora_request)
+    
+    """
     results = []
+    
     for i in range(0, len(inputs), batch_size):
         # split the inputs to chunks to avoid OOM
         batch_results = llm.generate(inputs[i : i + batch_size], sampling_params, lora_request=lora_request)
         results.extend(batch_results)
-                
+    """
+             
     preds = [result.outputs[0].text for result in results]
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(prompts, preds, labels):
