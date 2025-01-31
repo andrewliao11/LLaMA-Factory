@@ -38,6 +38,7 @@ def vllm_infer(
     template: str = "default",
     cutoff_len: int = 2048,
     max_samples: int = None,
+    n_samples_per_input: int = 1,
     vllm_config: str = "{}",
     save_name: str = "generated_predictions.jsonl",
     temperature: float = 0.95,
@@ -102,6 +103,7 @@ def vllm_infer(
         )
 
     sampling_params = SamplingParams(
+        n=n_samples_per_input,
         repetition_penalty=generating_args.repetition_penalty or 1.0,  # repetition_penalty must > 0
         temperature=generating_args.temperature,
         top_p=generating_args.top_p or 1.0,  # top_p must > 0
@@ -109,6 +111,7 @@ def vllm_infer(
         stop_token_ids=template_obj.get_stop_token_ids(tokenizer),
         max_tokens=generating_args.max_new_tokens,
         skip_special_tokens=False,
+        seed=123
     )
     
     if model_args.adapter_name_or_path is not None:
