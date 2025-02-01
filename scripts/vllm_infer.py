@@ -76,7 +76,8 @@ def vllm_infer(
             top_k=top_k,
             max_new_tokens=max_new_tokens,
             repetition_penalty=repetition_penalty,
-            infer_dtype=infer_dtype
+            infer_dtype=infer_dtype, 
+            trust_remote_code=True
         )
     )
 

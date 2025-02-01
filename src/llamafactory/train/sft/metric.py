@@ -135,6 +135,8 @@ class ComputeMetricsVQA:
             return "mcq"
         elif "gqa" in data_source:
             return "vqa"
+        elif "v_star_bench" in data_source:
+            return "mcq"
         else: 
             raise NotImplementedError(f"Unknown data source: {data_source}")
         
@@ -163,10 +165,10 @@ class ComputeMetricsVQA:
                 return res.group(1).strip().lower()
     
     def extract_mcq(self, text):
-        for pattern in [r"<answer>(.*?)</answer>"]: #[r'\\boxed\{(.*?)\}']:
+        for pattern, grp_ind in [(r"<answer>(.*?)\((\w)\)(.*?)</answer>", 2), (r"<answer>(.*?)(\w).</answer>", 2), (r"<answer>(.*?)</answer>", 1)]: #[r'\\boxed\{(.*?)\}']:
             res = re.search(pattern, text)
             if res is not None:
-                return res.group(1).strip().lower()
+                return res.group(grp_ind).strip().lower()
         
     def __post_init__(self):
         self._dump()
@@ -189,6 +191,7 @@ class ComputeMetricsVQA:
         response_length = []
         follow_valid_format = []
         for pred, label, input_prompt, data_source in zip(decoded_preds, decoded_labels, decoded_inputs, self.data_sources):
+            
             eval_mode = self.get_eval_mode(data_source)
             valid_format = True 
             if eval_mode == "mcq":

@@ -48,6 +48,38 @@ logger = get_logger(__name__)
 def is_main_process():
     return getattr(os.environ, "LOCAL_RANK", "0") == "0"
     
+
+from transformers import TrainerCallback
+class EvaluateCallback(TrainerCallback):
+    def __init__(self, output_dir, finetuning_args):
+        self.output_dir = output_dir
+        self.finetuning_args = finetuning_args
+        
+    def on_save(self, args, state, control, **kwargs):
+        if state.is_world_process_zero and self.finetuning_args.submit_eval_during_training:
+            work_dir = self.output_dir
+            from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+            checkpoint_dir = os.path.join(work_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}")
+            command = f"python main.py evaluate_experiment {work_dir} {self.finetuning_args.finetuning_type} {checkpoint_dir} --sampled_eval=True"
+            print(f"Use checkpoint: {checkpoint_dir}\nExecute: {command}")
+            #os.system(command)
+            import subprocess
+            parent_env = json.load(open(os.path.join(self.output_dir, "parent_env.json")))
+            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
+            
+            if self.finetuning_args.remove_optimizer_states:
+                # remove all the optimizer states (except for the last one) to save disk space
+                from pathlib import Path
+                paths = list(Path(self.output_dir).glob("checkpoint-*/global_step*"))
+                if len(paths) > 1:
+                    last_path = sorted(paths, key=lambda x: int(x.name.replace("global_step", "")))[-1]
+                    for p in paths:
+                        if p != last_path:
+                            print(f"Remove optimizer states: {p}")
+                            command = f"rm -rf {p}"
+                            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
+
+
 def run_sft(
     model_args: "ModelArguments",
     data_args: "DataArguments",
@@ -126,6 +158,8 @@ def run_sft(
         metric_module["preprocess_logits_for_metrics"] = topk_logit_processor
     
 
+    # NOTE: Add a callback to trigger evaluation job
+    callbacks.append(EvaluateCallback(training_args.output_dir, finetuning_args))
     # Initialize our Trainer
     trainer = CustomSeq2SeqTrainer(
         model=model,

@@ -67,7 +67,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
             self.accelerator.clip_grad_norm_ = MethodType(clip_grad_norm_old_version, self.accelerator)
             self.add_callback(BAdamCallback)
-
+    """
     def save_model(self, output_dir=None, _internal_call=False):
         super().save_model(output_dir, _internal_call)
         
@@ -91,7 +91,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                             print(f"Remove optimizer states: {p}")
                             command = f"rm -rf {p}"
                             subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
-                        
+    """              
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
         if self.optimizer is None:

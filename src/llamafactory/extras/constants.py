@@ -41,7 +41,9 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "gqa_data_gen/gqa_dataset_info.json"), 
     str(PROJECT_ROOT / "gqa_data_gen/cv_bench_dataset_info.json"), 
     str(PROJECT_ROOT / "gqa_data_gen/v_star_bench_dataset_info.json"),
+    str(PROJECT_ROOT / "gqa_data_gen/rwq_bench_dataset_info.json"), 
     str(PROJECT_ROOT / "gqa_data_gen/extra_dataset_info.json"), 
+    
 ]
 
 DEFAULT_TEMPLATE = defaultdict(str)
@@ -1216,6 +1218,7 @@ register_model_group(
         },
     },
     template="minicpm_v",
+    #vision=True
 )
 
 
@@ -1227,6 +1230,7 @@ register_model_group(
         },
     },
     template="minicpm_v",
+    #vision=True
 )
 
 
