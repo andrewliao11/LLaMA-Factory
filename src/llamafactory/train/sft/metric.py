@@ -137,6 +137,8 @@ class ComputeMetricsVQA:
             return "vqa"
         elif "v_star_bench" in data_source:
             return "mcq"
+        elif "rwq_bench" in data_source:
+            return "mcq"
         else: 
             raise NotImplementedError(f"Unknown data source: {data_source}")
         

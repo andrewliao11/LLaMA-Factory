@@ -55,7 +55,6 @@ def vllm_infer(
     Performs batch generation using vLLM engine, which supports tensor parallelism.
     Usage: python vllm_infer.py --model_name_or_path meta-llama/Llama-2-7b-hf --template llama --dataset alpaca_en_demo
     """
-    #check_version("vllm>=0.4.3,<=0.6.5")
     if pipeline_parallel_size > get_device_count():
         raise ValueError("Pipeline parallel size should be smaller than the number of gpus.")
 
@@ -112,6 +111,7 @@ def vllm_infer(
         stop_token_ids=template_obj.get_stop_token_ids(tokenizer),
         max_tokens=generating_args.max_new_tokens,
         skip_special_tokens=False,
+        #logprobs=1, 
         seed=123
     )
     
@@ -140,16 +140,6 @@ def vllm_infer(
     
     llm = LLM(**engine_args)
     results = llm.generate(inputs, sampling_params, lora_request=lora_request)
-    
-    """
-    results = []
-    
-    for i in range(0, len(inputs), batch_size):
-        # split the inputs to chunks to avoid OOM
-        batch_results = llm.generate(inputs[i : i + batch_size], sampling_params, lora_request=lora_request)
-        results.extend(batch_results)
-    """
-             
     preds = [result.outputs[0].text for result in results]
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(prompts, preds, labels):
