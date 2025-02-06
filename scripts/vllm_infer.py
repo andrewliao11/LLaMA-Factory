@@ -15,6 +15,9 @@
 import json
 
 import fire
+import torch
+from torchvision import transforms
+import numpy as np
 from transformers import Seq2SeqTrainingArguments
 
 from llamafactory.data import get_dataset, get_template_and_fix_tokenizer
@@ -23,13 +26,41 @@ from llamafactory.extras.misc import check_version, get_device_count
 from llamafactory.extras.packages import is_vllm_available
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
+import multiprocessing as mp
+from tqdm import tqdm
+from functools import partial
 import ipdb
+
 
 if is_vllm_available():
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
 
 
+def yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
+    inputs, prompts, labels = [], [], []
+    for sample in tqdm(dataset_module["train_dataset"], desc="Preparing data"):
+        if sample["images"]:
+            multi_modal_data = {
+                "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
+            }
+        else:
+            multi_modal_data = None
+
+        inputs.append({"prompt_token_ids": sample["input_ids"], "multi_modal_data": multi_modal_data})
+        prompts.append(tokenizer.decode(sample["input_ids"], skip_special_tokens=False))
+        labels.append(
+            tokenizer.decode(list(filter(lambda x: x != IGNORE_INDEX, sample["labels"])), skip_special_tokens=False)
+        )
+
+        if chunk_size > 0 and len(inputs) >= chunk_size:
+            yield inputs, prompts, labels
+            inputs, prompts, labels = [], [], []
+
+    if inputs:
+        yield inputs, prompts, labels
+        
+        
 def vllm_infer(
     model_name_or_path: str,
     adapter_name_or_path: str = None,
@@ -45,11 +76,13 @@ def vllm_infer(
     top_p: float = 0.7,
     top_k: int = 50,
     max_new_tokens: int = 1024,
+    #max_num_batched_tokens: int = 2048,
     repetition_penalty: float = 1.0,
     max_num_seqs: int = 256,        # default: 256
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
-    image_resolution: int = 512 * 512
+    image_resolution: int = 512 * 512, 
+    chunk_size: int = 3000,
 ):
     r"""
     Performs batch generation using vLLM engine, which supports tensor parallelism.
@@ -87,21 +120,7 @@ def vllm_infer(
     template_obj.mm_plugin.expand_mm_tokens = False  # for vllm generate
     dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
 
-    inputs, prompts, labels = [], [], []
-    for sample in dataset_module["train_dataset"]:
-        if sample["images"]:
-            multi_modal_data = {
-                "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
-            }
-        else:
-            multi_modal_data = None
-
-        inputs.append({"prompt_token_ids": sample["input_ids"], "multi_modal_data": multi_modal_data})
-        prompts.append(tokenizer.decode(sample["input_ids"], skip_special_tokens=False))
-        labels.append(
-            tokenizer.decode(list(filter(lambda x: x != IGNORE_INDEX, sample["labels"])), skip_special_tokens=False)
-        )
-
+    
     sampling_params = SamplingParams(
         n=n_samples_per_input,
         repetition_penalty=generating_args.repetition_penalty or 1.0,  # repetition_penalty must > 0
@@ -128,6 +147,7 @@ def vllm_infer(
         "pipeline_parallel_size": pipeline_parallel_size,
         "disable_log_stats": True,
         "max_num_seqs": max_num_seqs,
+        #"max_num_batched_tokens": max_num_batched_tokens, 
         "enable_lora": model_args.adapter_name_or_path is not None,
     }
     if template_obj.mm_plugin.__class__.__name__ != "BasePlugin":
@@ -137,9 +157,18 @@ def vllm_infer(
         engine_args.update(model_args.vllm_config)
 
     print(f"Engine args: {engine_args}")
-    
     llm = LLM(**engine_args)
-    results = llm.generate(inputs, sampling_params, lora_request=lora_request)
+    
+    results = []
+    prompts = []
+    labels = []
+    # NOTE: We use a smaller chunk size to avoid opening too many files at the same time.
+    for inputs_chunk, prompts_chunk, labels_chunk in yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
+        results_chunk = llm.generate(inputs_chunk, sampling_params, lora_request=lora_request)
+        results.extend(results_chunk)
+        prompts.extend(prompts_chunk)
+        labels.extend(labels_chunk)
+        
     preds = [result.outputs[0].text for result in results]
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(prompts, preds, labels):
@@ -148,6 +177,7 @@ def vllm_infer(
     print("*" * 70)
     print(f"{len(prompts)} generated results have been saved at {save_name}.")
     print("*" * 70)
+    
 
 if __name__ == "__main__":
     fire.Fire(vllm_infer)

@@ -165,13 +165,16 @@ class ComputeMetricsVQA:
             res = re.search(pattern, text)
             if res is not None:
                 return res.group(1).strip().lower()
+            
+        return text
     
     def extract_mcq(self, text):
         for pattern, grp_ind in [(r"<answer>(.*?)\((\w)\)(.*?)</answer>", 2), (r"<answer>(.*?)(\w).</answer>", 2), (r"<answer>(.*?)</answer>", 1)]: #[r'\\boxed\{(.*?)\}']:
             res = re.search(pattern, text)
             if res is not None:
                 return res.group(grp_ind).strip().lower()
-        
+        return text
+    
     def __post_init__(self):
         self._dump()
     
