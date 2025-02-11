@@ -60,7 +60,7 @@ class EvaluateCallback(TrainerCallback):
             work_dir = self.output_dir
             from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
             checkpoint_dir = os.path.join(work_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}")
-            command = f"python main.py evaluate_experiment {work_dir} {self.finetuning_args.finetuning_type} {checkpoint_dir} --sampled_eval=True"
+            command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval=True"
             print(f"Use checkpoint: {checkpoint_dir}\nExecute: {command}")
             #os.system(command)
             import subprocess

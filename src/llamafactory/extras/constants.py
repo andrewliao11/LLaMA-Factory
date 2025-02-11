@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ from peft.utils import WEIGHTS_NAME as ADAPTER_WEIGHTS_NAME
 from transformers.utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, WEIGHTS_INDEX_NAME, WEIGHTS_NAME
 
 
+AUDIO_PLACEHOLDER = os.environ.get("AUDIO_PLACEHOLDER", "<audio>")
+
 CHECKPOINT_NAMES = {
     SAFE_ADAPTER_WEIGHTS_NAME,
     ADAPTER_WEIGHTS_NAME,
@@ -43,7 +45,7 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "gqa_data_gen/v_star_bench_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/rwq_bench_dataset_info.json"), 
     str(PROJECT_ROOT / "gqa_data_gen/extra_dataset_info.json"), 
-    
+    str(PROJECT_ROOT / "gqa_data_gen/share4oreasoning_dataset_info.json"),
 ]
 
 DEFAULT_TEMPLATE = defaultdict(str)
@@ -68,6 +70,8 @@ LLAMABOARD_CONFIG = "llamaboard_config.yaml"
 METHODS = ["full", "freeze", "lora"]
 
 MOD_SUPPORTED_MODELS = {"bloom", "falcon", "gemma", "llama", "mistral", "mixtral", "phi", "starcoder2"}
+
+MULTIMODAL_SUPPORTED_MODELS = set()
 
 PEFT_METHODS = {"lora"}
 
@@ -100,8 +104,6 @@ V_HEAD_WEIGHTS_NAME = "value_head.bin"
 
 V_HEAD_SAFE_WEIGHTS_NAME = "value_head.safetensors"
 
-VISION_MODELS = set()
-
 
 class DownloadSource(str, Enum):
     DEFAULT = "hf"
@@ -112,14 +114,16 @@ class DownloadSource(str, Enum):
 def register_model_group(
     models: Dict[str, Dict[DownloadSource, str]],
     template: Optional[str] = None,
-    vision: bool = False,
+    multimodal: bool = False,
 ) -> None:
     for name, path in models.items():
         SUPPORTED_MODELS[name] = path
-        if template is not None and (any(suffix in name for suffix in ("-Chat", "-Distill", "-Instruct")) or vision):
+        if template is not None and (
+            any(suffix in name for suffix in ("-Chat", "-Distill", "-Instruct")) or multimodal
+        ):
             DEFAULT_TEMPLATE[name] = template
-        if vision:
-            VISION_MODELS.add(name)
+        if multimodal:
+            MULTIMODAL_SUPPORTED_MODELS.add(name)
 
 
 register_model_group(
@@ -1041,7 +1045,7 @@ register_model_group(
         },
     },
     template="mllama",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1057,7 +1061,7 @@ register_model_group(
         },
     },
     template="llava",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1073,7 +1077,7 @@ register_model_group(
         },
     },
     template="llava_next",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1085,7 +1089,7 @@ register_model_group(
         },
     },
     template="llava_next_mistral",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1097,7 +1101,7 @@ register_model_group(
         },
     },
     template="llava_next_llama3",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1109,7 +1113,7 @@ register_model_group(
         },
     },
     template="llava_next_yi",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1125,7 +1129,7 @@ register_model_group(
         },
     },
     template="llava_next_qwen",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1141,7 +1145,7 @@ register_model_group(
         },
     },
     template="llava_next_video",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1153,7 +1157,7 @@ register_model_group(
         },
     },
     template="llava_next_video_mistral",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1168,7 +1172,7 @@ register_model_group(
         },
     },
     template="llava_next_video_yi",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1212,25 +1216,44 @@ register_model_group(
 
 register_model_group(
     models={
-        "MiniCPM-o-2_6-Chat": {
+        "MiniCPM-o-2_6": {
             DownloadSource.DEFAULT: "openbmb/MiniCPM-o-2_6",
             DownloadSource.MODELSCOPE: "OpenBMB/MiniCPM-o-2_6",
         },
     },
     template="minicpm_v",
-    #vision=True
+    multimodal=True,
 )
 
 
 register_model_group(
     models={
-        "MiniCPM-V-2_6-Chat": {
+        "MiniCPM-V-2_6": {
             DownloadSource.DEFAULT: "openbmb/MiniCPM-V-2_6",
             DownloadSource.MODELSCOPE: "OpenBMB/MiniCPM-V-2_6",
         },
     },
     template="minicpm_v",
-    #vision=True
+    multimodal=True,
+)
+
+
+register_model_group(
+    models={
+        "Ministral-8B-Instruct-2410": {
+            DownloadSource.DEFAULT: "mistralai/Ministral-8B-Instruct-2410",
+            DownloadSource.MODELSCOPE: "mistralai/Ministral-8B-Instruct-2410",
+        },
+        "Mistral-Nemo-Base-2407": {
+            DownloadSource.DEFAULT: "mistralai/Mistral-Nemo-Base-2407",
+            DownloadSource.MODELSCOPE: "LLM-Research/Mistral-Nemo-Base-2407",
+        },
+        "Mistral-Nemo-Instruct-2407": {
+            DownloadSource.DEFAULT: "mistralai/Mistral-Nemo-Instruct-2407",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-Nemo-Instruct-2407",
+        },
+    },
+    template="ministral",
 )
 
 
@@ -1240,31 +1263,43 @@ register_model_group(
             DownloadSource.DEFAULT: "mistralai/Mistral-7B-v0.1",
             DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-7B-v0.1",
         },
-        "Mistral-7B-Instruct-v0.1": {
-            DownloadSource.DEFAULT: "mistralai/Mistral-7B-Instruct-v0.1",
-            DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-7B-Instruct-v0.1",
-        },
         "Mistral-7B-v0.2": {
             DownloadSource.DEFAULT: "alpindale/Mistral-7B-v0.2-hf",
             DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-7B-v0.2-hf",
+        },
+        "Mistral-7B-v0.3": {
+            DownloadSource.DEFAULT: "mistralai/Mistral-7B-v0.3",
+            DownloadSource.MODELSCOPE: "LLM-Research/mistral-7b-v0.3",
+        },
+        "Mistral-7B-Instruct-v0.1": {
+            DownloadSource.DEFAULT: "mistralai/Mistral-7B-Instruct-v0.1",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-7B-Instruct-v0.1",
         },
         "Mistral-7B-Instruct-v0.2": {
             DownloadSource.DEFAULT: "mistralai/Mistral-7B-Instruct-v0.2",
             DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-7B-Instruct-v0.2",
         },
-        "Mistral-7B-v0.3": {
-            DownloadSource.DEFAULT: "mistralai/Mistral-7B-v0.3",
-        },
         "Mistral-7B-Instruct-v0.3": {
             DownloadSource.DEFAULT: "mistralai/Mistral-7B-Instruct-v0.3",
             DownloadSource.MODELSCOPE: "LLM-Research/Mistral-7B-Instruct-v0.3",
         },
-        "Mistral-Nemo-Instruct-2407": {
-            DownloadSource.DEFAULT: "mistralai/Mistral-Nemo-Instruct-2407",
-            DownloadSource.MODELSCOPE: "AI-ModelScope/Mistral-Nemo-Instruct-2407",
-        },
     },
     template="mistral",
+)
+
+
+register_model_group(
+    models={
+        "Mistral-Small-24B-Base-2501": {
+            DownloadSource.DEFAULT: "mistralai/Mistral-Small-24B-Base-2501",
+            DownloadSource.MODELSCOPE: "mistralai/Mistral-Small-24B-Base-2501",
+        },
+        "Mistral-Small-24B-Instruct-2501": {
+            DownloadSource.DEFAULT: "mistralai/Mistral-Small-24B-Instruct-2501",
+            DownloadSource.MODELSCOPE: "mistralai/Mistral-Small-24B-Instruct-2501",
+        },
+    },
+    template="mistral_small",
 )
 
 
@@ -1274,13 +1309,13 @@ register_model_group(
             DownloadSource.DEFAULT: "mistralai/Mixtral-8x7B-v0.1",
             DownloadSource.MODELSCOPE: "AI-ModelScope/Mixtral-8x7B-v0.1",
         },
-        "Mixtral-8x7B-v0.1-Instruct": {
-            DownloadSource.DEFAULT: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            DownloadSource.MODELSCOPE: "AI-ModelScope/Mixtral-8x7B-Instruct-v0.1",
-        },
         "Mixtral-8x22B-v0.1": {
             DownloadSource.DEFAULT: "mistralai/Mixtral-8x22B-v0.1",
             DownloadSource.MODELSCOPE: "AI-ModelScope/Mixtral-8x22B-v0.1",
+        },
+        "Mixtral-8x7B-v0.1-Instruct": {
+            DownloadSource.DEFAULT: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/Mixtral-8x7B-Instruct-v0.1",
         },
         "Mixtral-8x22B-v0.1-Instruct": {
             DownloadSource.DEFAULT: "mistralai/Mixtral-8x22B-Instruct-v0.1",
@@ -1404,7 +1439,7 @@ register_model_group(
         },
     },
     template="paligemma",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -1448,7 +1483,51 @@ register_model_group(
         },
     },
     template="paligemma",
-    vision=True,
+    multimodal=True,
+)
+
+
+register_model_group(
+    models={
+        "PaliGemma2-3B-pt-224": {
+            DownloadSource.DEFAULT: "google/paligemma2-3b-pt-224",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-3b-pt-224",
+        },
+        "PaliGemma2-3B-pt-448": {
+            DownloadSource.DEFAULT: "google/paligemma2-3b-pt-448",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-3b-pt-448",
+        },
+        "PaliGemma2-3B-pt-896": {
+            DownloadSource.DEFAULT: "google/paligemma2-3b-pt-896",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-3b-pt-896",
+        },
+        "PaliGemma2-10B-pt-224": {
+            DownloadSource.DEFAULT: "google/paligemma2-10b-pt-224",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-10b-pt-224",
+        },
+        "PaliGemma2-10B-pt-448": {
+            DownloadSource.DEFAULT: "google/paligemma2-10b-pt-448",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-10b-pt-448",
+        },
+        "PaliGemma2-10B-pt-896": {
+            DownloadSource.DEFAULT: "google/paligemma2-10b-pt-896",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-10b-pt-896",
+        },
+        "PaliGemma2-28B-pt-224": {
+            DownloadSource.DEFAULT: "google/paligemma2-28b-pt-224",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-28b-pt-224",
+        },
+        "PaliGemma2-28B-pt-448": {
+            DownloadSource.DEFAULT: "google/paligemma2-28b-pt-448",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-28b-pt-448",
+        },
+        "PaliGemma2-28B-pt-896": {
+            DownloadSource.DEFAULT: "google/paligemma2-28b-pt-896",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/paligemma2-28b-pt-896",
+        },
+    },
+    template="paligemma",
+    multimodal=True,
 )
 
 
@@ -1531,7 +1610,7 @@ register_model_group(
         }
     },
     template="pixtral",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -2116,6 +2195,22 @@ register_model_group(
 
 register_model_group(
     models={
+        "Qwen2-Audio-7B": {
+            DownloadSource.DEFAULT: "Qwen/Qwen2-Audio-7B",
+            DownloadSource.MODELSCOPE: "Qwen/Qwen2-Audio-7B",
+        },
+        "Qwen2-Audio-7B-Instruct": {
+            DownloadSource.DEFAULT: "Qwen/Qwen2-Audio-7B-Instruct",
+            DownloadSource.MODELSCOPE: "Qwen/Qwen2-Audio-7B-Instruct",
+        },
+    },
+    template="qwen2_audio",
+    multimodal=True,
+)
+
+
+register_model_group(
+    models={
         "Qwen2-VL-2B-Instruct": {
             DownloadSource.DEFAULT: "Qwen/Qwen2-VL-2B-Instruct",
             DownloadSource.MODELSCOPE: "Qwen/Qwen2-VL-2B-Instruct",
@@ -2184,7 +2279,7 @@ register_model_group(
         },
     },
     template="qwen2_vl",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -2309,7 +2404,7 @@ register_model_group(
         },
     },
     template="video_llava",
-    vision=True,
+    multimodal=True,
 )
 
 
@@ -2536,7 +2631,7 @@ register_model_group(
         },
     },
     template="yi_vl",
-    vision=True,
+    multimodal=True,
 )
 
 

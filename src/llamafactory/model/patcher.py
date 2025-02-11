@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,13 +78,14 @@ def patch_processor(
     model_args: "ModelArguments",
 ) -> None:
     setattr(processor, "tokenizer", tokenizer)
-    setattr(processor, "image_seqlen", get_image_seqlen(config))
-    setattr(processor, "image_resolution", model_args.image_resolution)
-    setattr(processor, "patch_size", get_patch_size(config, processor))
-    setattr(processor, "video_resolution", model_args.video_resolution)
-    setattr(processor, "video_fps", model_args.video_fps)
-    setattr(processor, "video_maxlen", model_args.video_maxlen)
-    setattr(processor, "vision_feature_select_strategy", get_vision_feature_select_strategy(config, processor))
+    if getattr(config, "vision_config", None) is not None:  # visual models
+        setattr(processor, "image_seqlen", get_image_seqlen(config))
+        setattr(processor, "image_resolution", model_args.image_resolution)
+        setattr(processor, "patch_size", get_patch_size(config, processor))
+        setattr(processor, "video_resolution", model_args.video_resolution)
+        setattr(processor, "video_fps", model_args.video_fps)
+        setattr(processor, "video_maxlen", model_args.video_maxlen)
+        setattr(processor, "vision_feature_select_strategy", get_vision_feature_select_strategy(config, processor))
 
 
 def patch_config(
@@ -125,7 +126,7 @@ def patch_config(
         setattr(config, "use_cache", False)  # qwen2 does not support use_cache when using flash attn
 
     if getattr(config, "model_type", None) == "minicpmo":
-        setattr(config, "init_audio", False)
+        setattr(config, "init_audio", True)
         setattr(config, "init_tts", False)
 
     if "LlavaLlamaForCausalLM" in getattr(config, "architectures", []):

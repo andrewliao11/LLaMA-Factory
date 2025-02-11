@@ -175,7 +175,14 @@ class ComputeMetricsVQA:
             (r"<answer>(.*?)</answer>", 1)]: #[r'\\boxed\{(.*?)\}']:
             res = re.search(pattern, text)
             if res is not None:
-                return res.group(grp_ind).strip().lower()
+                res = res.group(grp_ind).strip().lower()
+                
+                if res.endswith("."):
+                    res = res[:-1]
+                if res.endswith(")") and res.startwith("("):
+                    res = res[1:-1]
+                return res
+            
         return text
     
     def __post_init__(self):

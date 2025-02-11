@@ -155,7 +155,6 @@ def get_forbidden_modules(config: "PretrainedConfig", finetuning_args: "Finetuni
     """
     model_type = getattr(config, "model_type", None)
     forbidden_modules = set()
-
     if model_type in COMPOSITE_MODELS:
         if finetuning_args.freeze_vision_tower:
             vision_model_keys = COMPOSITE_MODELS[model_type].vision_model_keys
@@ -278,6 +277,12 @@ _register_composite_model(
 _register_composite_model(
     model_type="mllama",
     vision_model_keys=["vision_model"],
+)
+
+
+_register_composite_model(
+    model_type="qwen2_audio",
+    vision_model_keys=["audio_tower"],
 )
 
 

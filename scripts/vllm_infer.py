@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from llamafactory.extras.packages import is_vllm_available
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
 import multiprocessing as mp
+from pathlib import Path
 from tqdm import tqdm
 from functools import partial
 import ipdb
@@ -60,7 +61,9 @@ def yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chun
     if inputs:
         yield inputs, prompts, labels
         
-        
+      
+# Qwen 2.5 default setup
+# temperature 0.7, top_p 0.8, repetition_penalty 1.05: https://github.com/QwenLM/Qwen2.5?tab=readme-ov-file#vllm 
 def vllm_infer(
     model_name_or_path: str,
     adapter_name_or_path: str = None,
@@ -76,7 +79,6 @@ def vllm_infer(
     top_p: float = 0.7,
     top_k: int = 50,
     max_new_tokens: int = 1024,
-    #max_num_batched_tokens: int = 2048,
     repetition_penalty: float = 1.0,
     max_num_seqs: int = 256,        # default: 256
     infer_dtype: str = "auto",
@@ -88,6 +90,8 @@ def vllm_infer(
     Performs batch generation using vLLM engine, which supports tensor parallelism.
     Usage: python vllm_infer.py --model_name_or_path meta-llama/Llama-2-7b-hf --template llama --dataset alpaca_en_demo
     """
+
+    check_version("vllm>=0.4.3,<=0.6.5")
     if pipeline_parallel_size > get_device_count():
         raise ValueError("Pipeline parallel size should be smaller than the number of gpus.")
 
@@ -159,20 +163,17 @@ def vllm_infer(
     print(f"Engine args: {engine_args}")
     llm = LLM(**engine_args)
     
-    results = []
-    prompts = []
-    labels = []
+    save_name = Path(save_name)
+    save_name.unlink(missing_ok=True)
+
     # NOTE: We use a smaller chunk size to avoid opening too many files at the same time.
-    for inputs_chunk, prompts_chunk, labels_chunk in yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
-        results_chunk = llm.generate(inputs_chunk, sampling_params, lora_request=lora_request)
-        results.extend(results_chunk)
-        prompts.extend(prompts_chunk)
-        labels.extend(labels_chunk)
-        
-    preds = [result.outputs[0].text for result in results]
-    with open(save_name, "w", encoding="utf-8") as f:
-        for text, pred, label in zip(prompts, preds, labels):
-            f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
+    for inputs, prompts, labels in yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
+        results = llm.generate(inputs, sampling_params, lora_request=lora_request)
+
+        preds = [result.outputs[0].text for result in results]
+        with open(save_name, "a", encoding="utf-8") as f:
+            for text, pred, label in zip(prompts, preds, labels):
+                f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
 
     print("*" * 70)
     print(f"{len(prompts)} generated results have been saved at {save_name}.")

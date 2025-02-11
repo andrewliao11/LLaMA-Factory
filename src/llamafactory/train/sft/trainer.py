@@ -67,31 +67,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
             self.accelerator.clip_grad_norm_ = MethodType(clip_grad_norm_old_version, self.accelerator)
             self.add_callback(BAdamCallback)
-    """
-    def save_model(self, output_dir=None, _internal_call=False):
-        super().save_model(output_dir, _internal_call)
-        
-        if self.is_world_process_zero() and self.finetuning_args.submit_eval_during_training:
-            work_dir = self.args.output_dir
-            command = f"python main.py evaluate_experiment {work_dir} {self.finetuning_args.finetuning_type} {output_dir} --sampled_eval=True"
-            print(f"Save checkpoint: {output_dir}\nExecute: {command}")
-            #os.system(command)
-            import subprocess
-            parent_env = json.load(open(os.path.join(self.args.output_dir, "parent_env.json")))
-            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
             
-            if self.finetuning_args.remove_optimizer_states:
-                # remove all the optimizer states (except for the last one) to save disk space
-                from pathlib import Path
-                paths = list(Path(self.args.output_dir).glob("checkpoint-*/global_step*"))
-                if len(paths) > 1:
-                    last_path = sorted(paths, key=lambda x: int(x.name.replace("global_step", "")))[-1]
-                    for p in paths:
-                        if p != last_path:
-                            print(f"Remove optimizer states: {p}")
-                            command = f"rm -rf {p}"
-                            subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
-    """              
     @override
     def create_optimizer(self) -> "torch.optim.Optimizer":
         if self.optimizer is None:
@@ -149,25 +125,9 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
         return loss, generated_tokens, labels
 
-    def _pad_tensors_to_target_len(self, src_tensor: "torch.Tensor", tgt_tensor: "torch.Tensor") -> "torch.Tensor":
-        r"""
-        Pads the tensor to the same length as the target tensor.
-        """
-        assert self.processing_class.pad_token_id is not None, "Pad token is required."
-        padded_tensor = self.processing_class.pad_token_id * torch.ones_like(tgt_tensor)
-        padded_tensor[:, -src_tensor.shape[-1] :] = src_tensor  # adopt left-padding
-        return padded_tensor.contiguous()  # in contiguous memory
-
-    def save_logprobs(self, dataset: "Dataset", predict_results) -> None:
-        if not self.is_world_process_zero():
-            return
-
-        output_prediction_file = os.path.join(self.args.output_dir, "topk_logprobs.jsonl")
-        logger.info_rank0(f"Saving prediction results to {output_prediction_file}")
-        np.savez(output_prediction_file, topk_tokens=np.array(predict_results["topk_tokens"]), topk_probs=np.array(predict_results["topk_probs"]))
-
-    def save_predictions(self, dataset: "Dataset", predict_results: "PredictionOutput", skip_special_tokens: bool = True) -> None:
-
+    def save_predictions(
+        self, dataset: "Dataset", predict_results: "PredictionOutput", skip_special_tokens: bool = True
+    ) -> None:
         r"""
         Saves model predictions to `output_dir`.
 
