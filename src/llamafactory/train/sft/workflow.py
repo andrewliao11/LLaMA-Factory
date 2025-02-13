@@ -89,7 +89,10 @@ def run_sft(
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
 
-    if is_main_process() and "wandb" in training_args.report_to:
+    #if is_main_process() and "wandb" in training_args.report_to:
+    print(training_args.distributed_state)
+    print(training_args.distributed_state.is_main_process)
+    if training_args.distributed_state.is_main_process and "wandb" in training_args.report_to:
         from dataclasses import dataclass, asdict
         p = os.path.join(training_args.output_dir, "wandb_id")
         if os.path.exists(p):
