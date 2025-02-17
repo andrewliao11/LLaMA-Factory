@@ -170,7 +170,8 @@ def vllm_infer(
     for inputs, prompts, labels in yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
         results = llm.generate(inputs, sampling_params, lora_request=lora_request)
 
-        preds = [result.outputs[0].text for result in results]
+        #preds = [result.outputs[0].text for result in results]
+        preds = [[o.text for o in result.outputs] for result in results]
         with open(save_name, "a", encoding="utf-8") as f:
             for text, pred, label in zip(prompts, preds, labels):
                 f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
