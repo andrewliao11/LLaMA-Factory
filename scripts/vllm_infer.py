@@ -84,7 +84,7 @@ def vllm_infer(
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
     image_resolution: int = 512 * 512, 
-    chunk_size: int = 3000,
+    chunk_size: int = 1000,
 ):
     r"""
     Performs batch generation using vLLM engine, which supports tensor parallelism.
@@ -164,13 +164,21 @@ def vllm_infer(
     llm = LLM(**engine_args)
     
     save_name = Path(save_name)
-    save_name.unlink(missing_ok=True)
+    
+    if save_name.exists():
+        n_data_dumped = len(save_name.open().readlines())
+    else:
+        n_data_dumped = 0    
+        
+    #save_name.unlink(missing_ok=True)
+    n_chunk_to_skip = n_data_dumped // chunk_size
 
     # NOTE: We use a smaller chunk size to avoid opening too many files at the same time.
-    for inputs, prompts, labels in yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
+    for i, (inputs, prompts, labels) in enumerate(yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size)):
+        if i < n_chunk_to_skip:
+            continue
+        
         results = llm.generate(inputs, sampling_params, lora_request=lora_request)
-
-        #preds = [result.outputs[0].text for result in results]
         preds = [[o.text for o in result.outputs] for result in results]
         with open(save_name, "a", encoding="utf-8") as f:
             for text, pred, label in zip(prompts, preds, labels):
