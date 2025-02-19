@@ -139,6 +139,14 @@ class ComputeMetricsVQA:
             return "mcq"
         elif "rwq_bench" in data_source:
             return "mcq"
+        elif "mme_real_world" in data_source:
+            return "mcq"
+        elif "pope" in data_source:
+            return "vqa"
+        elif "mmstar" in data_source:
+            return "mcq"
+        elif "natural_bench" in data_source:
+            return "vqa"
         else: 
             raise NotImplementedError(f"Unknown data source: {data_source}")
         
@@ -179,7 +187,7 @@ class ComputeMetricsVQA:
                 
                 if res.endswith("."):
                     res = res[:-1]
-                if res.endswith(")") and res.startwith("("):
+                if res.endswith(")") and res.startswith("("):
                     res = res[1:-1]
                 return res
             
