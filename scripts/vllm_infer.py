@@ -13,11 +13,10 @@
 # limitations under the License.
 
 import json
+from pathlib import Path
 
 import fire
-import torch
-from torchvision import transforms
-import numpy as np
+from tqdm import tqdm
 from transformers import Seq2SeqTrainingArguments
 
 from llamafactory.data import get_dataset, get_template_and_fix_tokenizer
@@ -26,12 +25,6 @@ from llamafactory.extras.misc import check_version, get_device_count
 from llamafactory.extras.packages import is_vllm_available
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
-import multiprocessing as mp
-from pathlib import Path
-from tqdm import tqdm
-from functools import partial
-import ipdb
-
 
 if is_vllm_available():
     from vllm import LLM, SamplingParams
@@ -60,10 +53,10 @@ def yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chun
 
     if inputs:
         yield inputs, prompts, labels
-        
-      
+
+
 # Qwen 2.5 default setup
-# temperature 0.7, top_p 0.8, repetition_penalty 1.05: https://github.com/QwenLM/Qwen2.5?tab=readme-ov-file#vllm 
+# temperature 0.7, top_p 0.8, repetition_penalty 1.05: https://github.com/QwenLM/Qwen2.5?tab=readme-ov-file#vllm
 def vllm_infer(
     model_name_or_path: str,
     adapter_name_or_path: str = None,
@@ -80,10 +73,10 @@ def vllm_infer(
     top_k: int = 50,
     max_new_tokens: int = 1024,
     repetition_penalty: float = 1.0,
-    max_num_seqs: int = 256,        # default: 256
+    max_num_seqs: int = 256,  # default: 256
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
-    image_resolution: int = 512 * 512, 
+    image_resolution: int = 512 * 512,
     chunk_size: int = 1000,
 ):
     r"""
@@ -97,7 +90,7 @@ def vllm_infer(
 
     model_args, data_args, _, generating_args = get_infer_args(
         dict(
-            image_resolution=image_resolution, 
+            image_resolution=image_resolution,
             model_name_or_path=model_name_or_path,
             adapter_name_or_path=adapter_name_or_path,
             dataset=dataset,
@@ -112,8 +105,8 @@ def vllm_infer(
             top_k=top_k,
             max_new_tokens=max_new_tokens,
             repetition_penalty=repetition_penalty,
-            infer_dtype=infer_dtype, 
-            trust_remote_code=True
+            infer_dtype=infer_dtype,
+            trust_remote_code=True,
         )
     )
 
@@ -124,7 +117,6 @@ def vllm_infer(
     template_obj.mm_plugin.expand_mm_tokens = False  # for vllm generate
     dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
 
-    
     sampling_params = SamplingParams(
         n=n_samples_per_input,
         repetition_penalty=generating_args.repetition_penalty or 1.0,  # repetition_penalty must > 0
@@ -134,10 +126,10 @@ def vllm_infer(
         stop_token_ids=template_obj.get_stop_token_ids(tokenizer),
         max_tokens=generating_args.max_new_tokens,
         skip_special_tokens=False,
-        #logprobs=1, 
-        seed=123
+        # logprobs=1,
+        seed=123,
     )
-    
+
     if model_args.adapter_name_or_path is not None:
         lora_request = LoRARequest("default", 1, model_args.adapter_name_or_path[0])
     else:
@@ -151,18 +143,18 @@ def vllm_infer(
         "pipeline_parallel_size": pipeline_parallel_size,
         "disable_log_stats": True,
         "max_num_seqs": max_num_seqs,
-        #"max_num_batched_tokens": max_num_batched_tokens, 
+        # "max_num_batched_tokens": max_num_batched_tokens,
         "enable_lora": model_args.adapter_name_or_path is not None,
     }
     if template_obj.mm_plugin.__class__.__name__ != "BasePlugin":
-        engine_args["limit_mm_per_prompt"] = {"image": 4, "video": 2}
+        engine_args["limit_mm_per_prompt"] = {"image": 1, "video": 0}
 
     if isinstance(model_args.vllm_config, dict):
         engine_args.update(model_args.vllm_config)
 
     print(f"Engine args: {engine_args}")
     llm = LLM(**engine_args)
-    
+
     save_name = Path(save_name)
     
     if save_name.exists():
@@ -173,8 +165,9 @@ def vllm_infer(
     #save_name.unlink(missing_ok=True)
     n_chunk_to_skip = n_data_dumped // chunk_size
 
-    # NOTE: We use a smaller chunk size to avoid opening too many files at the same time.
+    # NOTE: We use a smaller chunk size to avoid opening too many files at the sașe time.
     for i, (inputs, prompts, labels) in enumerate(yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size)):
+        n_total_samples += len(inputs)
         if i < n_chunk_to_skip:
             continue
         
@@ -185,9 +178,9 @@ def vllm_infer(
                 f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
 
     print("*" * 70)
-    print(f"{len(prompts)} generated results have been saved at {save_name}.")
+    print(f"{n_total_samples} generated results have been saved at {save_name}.")
     print("*" * 70)
-    
+
 
 if __name__ == "__main__":
     fire.Fire(vllm_infer)

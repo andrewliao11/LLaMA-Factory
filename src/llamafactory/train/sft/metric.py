@@ -174,13 +174,19 @@ class ComputeMetricsVQA:
             if res is not None:
                 return res.group(1).strip().lower()
             
-        return text
+        return text.lower()
     
     def extract_mcq(self, text):
+        # Extact "ldafjdlasj <answer> my_answer </answer> dfadlfal" -> "my_answer"
+        if (res := re.search(r"(.*?)<answer>(.*?)</answer>(.*?)", text)) is not None: 
+            text = res.group(2).strip()
+
+        # Extract first element in braces, e.g., "fdasf (A ) dlafsd (b)" -> "a"
         for pattern, grp_ind in [
-            (r"<answer>(.*?)\((\w)\)(.*?)</answer>", 2), 
+            (r"(.*?)\((\w)\)(.*?)", 2), 
             #(r"<answer>(.*?)(\w).</answer>", 2), 
-            (r"<answer>(.*?)</answer>", 1)]: #[r'\\boxed\{(.*?)\}']:
+            # (r"(.*?)", 1)]: #[r'\\boxed\{(.*?)\}'
+            ]:
             res = re.search(pattern, text)
             if res is not None:
                 res = res.group(grp_ind).strip().lower()
@@ -191,7 +197,7 @@ class ComputeMetricsVQA:
                     res = res[1:-1]
                 return res
             
-        return text
+        return text.lower()
     
     def __post_init__(self):
         self._dump()
