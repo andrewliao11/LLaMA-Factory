@@ -228,22 +228,21 @@ def vllm_infer(
 
     save_name = Path(save_name)
     
+    
+    # Determine how many samples are already processed
+    n_processed_samples = 0
     if save_name.exists():
-        n_data_dumped = len(save_name.open().readlines())
-    else:
-        n_data_dumped = 0    
-        
-    #save_name.unlink(missing_ok=True)
-    n_chunk_to_skip = n_data_dumped // chunk_size
+        with save_name.open() as f:
+            n_processed_samples = len(f.readlines())
+
+    # "Fast-forward" the dataset to the current sample
+    dataset = islice(dataset_module["train_dataset"], n_processed_samples, None)
+    
 
     # NOTE: We use a smaller chunk size to avoid opening too many files at the sașe time.
     editor = EditPrompts(force_thinking, force_wait, n_reflections, tokenizer, sampling_kwargs)
-        
-    n_total_samples = 0
-    for i, (inputs, prompts, labels) in enumerate(yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size)):
-        n_total_samples += len(inputs)
-        if i < n_chunk_to_skip:
-            continue
+    for i, (inputs, prompts, labels) in enumerate(yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size)):
+        n_processed_samples += len(inputs)
         
         data_to_dump = []
         
@@ -264,7 +263,7 @@ def vllm_infer(
         
 
     print("*" * 70)
-    print(f"{n_total_samples} generated results have been saved at {save_name}.")
+    print(f"{n_processed_samples} generated results have been saved at {save_name}.")
     print("*" * 70)
 
 # python LLaMA-Factory/scripts/vllm_infer.py --model_name_or_path /h/andrewliao/large-scratch/pretrained_weights/Qwen2.5-VL-7B-Instruct/ --dataset image/gqa_variants/filtered_gqa_v0_Qwen2.5-32B-Instruct_answer_5000 --dataset_dir LLaMA-Factory/data --template qwen2_vl --infer_dtype half --max_new_tokens --save_name outputs/force_thinking/filtered_gqa_v0_Qwen2.5-32B-Instruct_answer_5000/generated_predictions.jsonl --max_num_seqs 1 --n_samples_per_input 1 --temperature 0. --vllm_config="{'enforce_eager': true, 'gpu_memory_utilization': 0.95}"
