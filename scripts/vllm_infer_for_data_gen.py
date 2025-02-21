@@ -100,9 +100,9 @@ class EditPrompts():
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
         
     
-def yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
+def yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
     inputs, prompts, labels = [], [], []
-    for sample in tqdm(dataset_module["train_dataset"], desc="Preparing data"):
+    for sample in tqdm(dataset, desc="Preparing data"):
         if sample["images"]:
             multi_modal_data = {
                 "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
