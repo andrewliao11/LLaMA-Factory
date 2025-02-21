@@ -14,6 +14,7 @@
 
 import json
 from pathlib import Path
+from itertools import islice
 
 import fire
 import numpy as np
