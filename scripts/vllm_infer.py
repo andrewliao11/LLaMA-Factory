@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from itertools import islice
 from pathlib import Path
 
 import fire
@@ -26,14 +27,15 @@ from llamafactory.extras.packages import is_vllm_available
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
 
+
 if is_vllm_available():
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
 
 
-def yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size):
+def yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
     inputs, prompts, labels = [], [], []
-    for sample in tqdm(dataset_module["train_dataset"], desc="Preparing data"):
+    for sample in tqdm(dataset, desc="Preparing data"):
         if sample["images"]:
             multi_modal_data = {
                 "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
@@ -156,21 +158,18 @@ def vllm_infer(
     llm = LLM(**engine_args)
 
     save_name = Path(save_name)
-    
-    if save_name.exists():
-        n_data_dumped = len(save_name.open().readlines())
-    else:
-        n_data_dumped = 0    
-        
-    #save_name.unlink(missing_ok=True)
-    n_chunk_to_skip = n_data_dumped // chunk_size
 
-    # NOTE: We use a smaller chunk size to avoid opening too many files at the sașe time.
-    for i, (inputs, prompts, labels) in enumerate(yield_chunks(dataset_module, template_obj, tokenizer, image_resolution, chunk_size)):
-        n_total_samples += len(inputs)
-        if i < n_chunk_to_skip:
-            continue
-        
+    # Determine how many samples are already processed
+    n_processed_samples = 0
+    if save_name.exists():
+        with save_name.open() as f:
+            n_processed_samples = len(f.readlines())
+
+    # "Fast-forward" the dataset to the current sample
+    dataset = islice(dataset_module["train_dataset"], n_processed_samples, None)
+
+    for inputs, prompts, labels in yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
+        n_processed_samples += len(inputs)
         results = llm.generate(inputs, sampling_params, lora_request=lora_request)
         preds = [[o.text for o in result.outputs] for result in results]
         with open(save_name, "a", encoding="utf-8") as f:
@@ -178,7 +177,7 @@ def vllm_infer(
                 f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
 
     print("*" * 70)
-    print(f"{n_total_samples} generated results have been saved at {save_name}.")
+    print(f"{n_processed_samples} generated results have been saved at {save_name}.")
     print("*" * 70)
 
 
