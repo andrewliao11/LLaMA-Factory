@@ -184,6 +184,7 @@ class ComputeMetricsVQA:
         # Extract first element in braces, e.g., "fdasf (A ) dlafsd (b)" -> "a"
         for pattern, grp_ind in [
             (r"(.*?)\((\w)\)(.*?)", 2), 
+            (r"(.*?)(\w)(.*?)", 2), 
             #(r"<answer>(.*?)(\w).</answer>", 2), 
             # (r"(.*?)", 1)]: #[r'\\boxed\{(.*?)\}'
             ]:
