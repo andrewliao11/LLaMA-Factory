@@ -50,7 +50,9 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "gqa_data_gen/mme_real_world_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/mmstar_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/natural_bench_dataset_info.json"),
-    
+    str(PROJECT_ROOT / "gqa_data_gen/text_only_gqa_dataset_info.json"),
+    str(PROJECT_ROOT / "docci_data_gen/docci_mcq_dataset_info.json"),
+    str(PROJECT_ROOT / "docci_data_gen/docci_llm_mcq_dataset_info.json"),
 ]
 
 DEFAULT_TEMPLATE = defaultdict(str)
