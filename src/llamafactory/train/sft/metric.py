@@ -125,6 +125,38 @@ alphabet_options = [
     '(z)'
 ]
 
+def extract_vqa(text):
+    for pattern in [r"<answer>(.*?)</answer>"]: #[r'\\boxed\{(.*?)\}']:
+        res = re.search(pattern, text)
+        if res is not None:
+            return res.group(1).strip().lower()
+        
+    return text.lower()
+
+def extract_mcq(text):
+    # Extact "ldafjdlasj <answer> my_answer </answer> dfadlfal" -> "my_answer"
+    if (res := re.search(r"(.*?)<answer>(.*?)</answer>(.*?)", text)) is not None: 
+        text = res.group(2).strip()
+
+    # Extract first element in braces, e.g., "fdasf (A ) dlafsd (b)" -> "a"
+    for pattern, grp_ind in [
+        (r"(.*?)\((\w)\)(.*?)", 2), 
+        (r"(.*?)(\w)(.*?)", 2), 
+        #(r"<answer>(.*?)(\w).</answer>", 2), 
+        # (r"(.*?)", 1)]: #[r'\\boxed\{(.*?)\}'
+        ]:
+        res = re.search(pattern, text)
+        if res is not None:
+            res = res.group(grp_ind).strip().lower()
+            
+            if res.endswith("."):
+                res = res[:-1]
+            if res.endswith(")") and res.startswith("("):
+                res = res[1:-1]
+            return res
+        
+    return text.lower()
+
 @dataclass
 class ComputeMetricsVQA:
     tokenizer: "PreTrainedTokenizer"
@@ -170,38 +202,6 @@ class ComputeMetricsVQA:
         self.data_dict = {}
         return result
     
-    def extract_vqa(self, text):
-        for pattern in [r"<answer>(.*?)</answer>"]: #[r'\\boxed\{(.*?)\}']:
-            res = re.search(pattern, text)
-            if res is not None:
-                return res.group(1).strip().lower()
-            
-        return text.lower()
-    
-    def extract_mcq(self, text):
-        # Extact "ldafjdlasj <answer> my_answer </answer> dfadlfal" -> "my_answer"
-        if (res := re.search(r"(.*?)<answer>(.*?)</answer>(.*?)", text)) is not None: 
-            text = res.group(2).strip()
-
-        # Extract first element in braces, e.g., "fdasf (A ) dlafsd (b)" -> "a"
-        for pattern, grp_ind in [
-            (r"(.*?)\((\w)\)(.*?)", 2), 
-            (r"(.*?)(\w)(.*?)", 2), 
-            #(r"<answer>(.*?)(\w).</answer>", 2), 
-            # (r"(.*?)", 1)]: #[r'\\boxed\{(.*?)\}'
-            ]:
-            res = re.search(pattern, text)
-            if res is not None:
-                res = res.group(grp_ind).strip().lower()
-                
-                if res.endswith("."):
-                    res = res[:-1]
-                if res.endswith(")") and res.startswith("("):
-                    res = res[1:-1]
-                return res
-            
-        return text.lower()
-    
     def __post_init__(self):
         self._dump()
     
@@ -227,8 +227,8 @@ class ComputeMetricsVQA:
             eval_mode = self.get_eval_mode(data_source)
             valid_format = True 
             if eval_mode == "mcq":
-                extracted_pred = self.extract_mcq(pred)
-                extracted_label = self.extract_mcq(label)
+                extracted_pred = extract_mcq(pred)
+                extracted_label = extract_mcq(label)
                 
                 hit = extracted_pred == extracted_label
                 try:
@@ -244,8 +244,8 @@ class ComputeMetricsVQA:
                 if extracted_pred is None or extracted_pred not in alphabet_options:
                     valid_format = False
             elif eval_mode == "vqa":
-                extracted_pred = self.extract_vqa(pred)
-                extracted_label = self.extract_vqa(label)
+                extracted_pred = extract_vqa(pred)
+                extracted_label = extract_vqa(label)
                 hit = extracted_pred == extracted_label
                 
                 if extracted_pred is None:

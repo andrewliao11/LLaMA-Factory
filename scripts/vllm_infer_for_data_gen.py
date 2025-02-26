@@ -35,8 +35,7 @@ if is_vllm_available():
 import ipdb
 
 
-class EditPrompts():
-    
+class EditPrompts:
     think_start_token = "<think>"
     think_end_token = "</think>"
     wait_tokens = ["Wait...", "Hmm..."]
@@ -49,66 +48,62 @@ class EditPrompts():
         self.sampling_kwargs = sampling_kwargs
         self.thinking_tokens = tokenizer.encode(self.think_start_token)
         self.npr = np.random.RandomState(123)
-        
+
     def before_inference(self, inputs):
         new_inputs = deepcopy(inputs)
         if self.force_thinking:
             for i, example in enumerate(new_inputs):
                 new_inputs[i]["prompt_token_ids"] = example["prompt_token_ids"] + self.thinking_tokens
-        
+
         return new_inputs
-    
+
     def after_inference(self, inputs, preds):
-        if self.force_wait:
-            wait_sampling_kwargs = deepcopy(self.sampling_kwargs)
-            wait_sampling_kwargs["min_tokens"] = 1
-            wait_sampling_kwargs["n"] = self.n_reflections
-            wait_sampling_params = SamplingParams(**wait_sampling_kwargs)
-            
-            # construct inputs
-            new_inputs = []
-            for inp, pred in zip(inputs, preds):
-                prompt = self.tokenizer.decode(inp["prompt_token_ids"])
-                for p in pred:
-                    suppress_end_of_thinking = p.split(self.think_end_token)[0].strip()
-                    wait_text = self.npr.choice(self.wait_tokens)
-                    new_prompt = prompt + suppress_end_of_thinking + f" {wait_text} "
-                    new_propmt_token_ids = self.tokenizer.encode(new_prompt)
-                    new_inp = deepcopy(inp)
-                    new_inp["prompt_token_ids"] = new_propmt_token_ids
-                    new_inputs.append(new_inp)
-                    
-            return {
-                "prompts": new_inputs, 
-                "sampling_params": wait_sampling_params
-            }
-        
-        else:
-            return None
+        if not self.force_wait:
+            return
+
+        wait_sampling_kwargs = deepcopy(self.sampling_kwargs)
+        wait_sampling_kwargs["min_tokens"] = 1
+        wait_sampling_kwargs["n"] = self.n_reflections
+        wait_sampling_params = SamplingParams(**wait_sampling_kwargs)
+
+        # construct inputs
+        new_inputs = []
+        for inp, pred in zip(inputs, preds):
+            prompt = self.tokenizer.decode(inp["prompt_token_ids"])
+            for p in pred:
+                suppress_end_of_thinking = p.split(self.think_end_token)[0].strip()
+                wait_text = self.npr.choice(self.wait_tokens)
+                new_prompt = prompt + suppress_end_of_thinking + f" {wait_text} "
+                new_propmt_token_ids = self.tokenizer.encode(new_prompt)
+                new_inp = deepcopy(inp)
+                new_inp["prompt_token_ids"] = new_propmt_token_ids
+                new_inputs.append(new_inp)
+
+        return {"prompts": new_inputs, "sampling_params": wait_sampling_params}
 
     def dump_results(self, save_name, data_to_dump, labels):
         with open(save_name, "a", encoding="utf-8") as f:
             n_rounds = len(data_to_dump)
             n_data = len(data_to_dump[0]["inputs"])
-            
+
             for i in range(n_data):
                 d = {"label": labels[i]}
                 for r in range(n_rounds):
                     d[f"inputs_{r}"] = self.tokenizer.decode(data_to_dump[r]["inputs"][i]["prompt_token_ids"])
                     d[f"preds_{r}"] = data_to_dump[r]["preds"][i]
-                    
+
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
-        
-    
+
+
 def yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
     inputs, prompts, labels = [], [], []
     for sample in tqdm(dataset, desc="Preparing data"):
+
+        multi_modal_data = None
         if sample["images"]:
             multi_modal_data = {
                 "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
             }
-        else:
-            multi_modal_data = None
 
         inputs.append({"prompt_token_ids": sample["input_ids"], "multi_modal_data": multi_modal_data})
         prompts.append(tokenizer.decode(sample["input_ids"], skip_special_tokens=False))
@@ -198,7 +193,7 @@ def vllm_infer(
         "stop_token_ids": template_obj.get_stop_token_ids(tokenizer),
         "max_tokens": generating_args.max_new_tokens,
         "skip_special_tokens": False,
-        "seed": 123
+        "seed": 123,
     }
     sampling_params = SamplingParams(**sampling_kwargs)
 
@@ -228,8 +223,7 @@ def vllm_infer(
     llm = LLM(**engine_args)
 
     save_name = Path(save_name)
-    
-    
+
     # Determine how many samples are already processed
     n_processed_samples = 0
     if save_name.exists():
@@ -238,34 +232,35 @@ def vllm_infer(
 
     # "Fast-forward" the dataset to the current sample
     dataset = islice(dataset_module["train_dataset"], n_processed_samples, None)
-    
 
     # NOTE: We use a smaller chunk size to avoid opening too many files at the sașe time.
     editor = EditPrompts(force_thinking, force_wait, n_reflections, tokenizer, sampling_kwargs)
-    for i, (inputs, prompts, labels) in enumerate(yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size)):
+    for i, (inputs, prompts, labels) in enumerate(
+        yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size)
+    ):
         n_processed_samples += len(inputs)
-        
+
         data_to_dump = []
-        
+
         ### Edit inputs prompts if necessary
         new_iniputs = editor.before_inference(inputs)
         results = llm.generate(new_iniputs, sampling_params, lora_request=lora_request)
         preds = [[o.text for o in result.outputs] for result in results]
         data_to_dump.append({"inputs": new_iniputs, "preds": preds})
-        
+
         # suppress the thinking token
         new_input_dict = editor.after_inference(new_iniputs, preds)
         if new_input_dict is not None:
             results = llm.generate(**new_input_dict, lora_request=lora_request)
             preds = [[o.text for o in result.outputs] for result in results]
             data_to_dump.append({"inputs": new_input_dict["prompts"], "preds": preds})
-            
+
         editor.dump_results(save_name, data_to_dump, labels)
-        
 
     print("*" * 70)
     print(f"{n_processed_samples} generated results have been saved at {save_name}.")
     print("*" * 70)
+
 
 # python LLaMA-Factory/scripts/vllm_infer.py --model_name_or_path /h/andrewliao/large-scratch/pretrained_weights/Qwen2.5-VL-7B-Instruct/ --dataset image/gqa_variants/filtered_gqa_v0_Qwen2.5-32B-Instruct_answer_5000 --dataset_dir LLaMA-Factory/data --template qwen2_vl --infer_dtype half --max_new_tokens --save_name outputs/force_thinking/filtered_gqa_v0_Qwen2.5-32B-Instruct_answer_5000/generated_predictions.jsonl --max_num_seqs 1 --n_samples_per_input 1 --temperature 0. --vllm_config="{'enforce_eager': true, 'gpu_memory_utilization': 0.95}"
 
