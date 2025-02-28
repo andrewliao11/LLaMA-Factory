@@ -137,7 +137,7 @@ def extract_mcq(text):
     # Extact "ldafjdlasj <answer> my_answer </answer> dfadlfal" -> "my_answer"
     if (res := re.search(r"(.*?)<answer>(.*?)</answer>(.*?)", text)) is not None: 
         text = res.group(2).strip()
-
+        
     # Extract first element in braces, e.g., "fdasf (A ) dlafsd (b)" -> "a"
     for pattern, grp_ind in [
         (r"(.*?)\((\w)\)(.*?)", 2), 
@@ -180,6 +180,8 @@ class ComputeMetricsVQA:
         elif "natural_bench" in data_source:
             return "vqa"
         elif "docci" in data_source:
+            return "mcq"
+        elif "mmvp" in data_source:
             return "mcq"
         else: 
             raise NotImplementedError(f"Unknown data source: {data_source}")
