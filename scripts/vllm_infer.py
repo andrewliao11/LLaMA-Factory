@@ -170,6 +170,7 @@ def vllm_infer(
 
     for inputs, prompts, labels in yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
         n_processed_samples += len(inputs)
+        # vllm now only supports adding lora to language models, so all lora weights in the visual backbone are ignored
         results = llm.generate(inputs, sampling_params, lora_request=lora_request)
         preds = [[o.text for o in result.outputs] for result in results]
         with open(save_name, "a", encoding="utf-8") as f:
