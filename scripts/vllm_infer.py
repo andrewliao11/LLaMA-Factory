@@ -17,6 +17,7 @@ from itertools import islice
 from pathlib import Path
 
 import fire
+from PIL import Image
 from tqdm import tqdm
 from transformers import Seq2SeqTrainingArguments
 
@@ -33,13 +34,19 @@ if is_vllm_available():
     from vllm.lora.request import LoRARequest
 
 
-def yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
+def yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size, resize_images: bool):
     inputs, prompts, labels = [], [], []
     for sample in tqdm(dataset, desc="Preparing data"):
         if sample["images"]:
-            multi_modal_data = {
-                "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
-            }
+            assert len(sample["images"]) == 1
+            if not resize_images:
+                # Do not resize the image before passing to vLLM
+                multi_modal_data = {"image": Image.open(sample["images"][0])}
+            else:
+                # Use LLamaFactory utilities to resize (like in training)
+                multi_modal_data = {
+                    "image": template_obj.mm_plugin._regularize_images(sample["images"], image_resolution=image_resolution)
+                }
         else:
             multi_modal_data = None
 
@@ -79,12 +86,19 @@ def vllm_infer(
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
     image_resolution: int = 512 * 512,
+    resize_images: bool = False,
     chunk_size: int = 1000,
 ):
     r"""
     Performs batch generation using vLLM engine, which supports tensor parallelism.
     Usage: python vllm_infer.py --model_name_or_path meta-llama/Llama-2-7b-hf --template llama --dataset alpaca_en_demo
+
+    NOTE: If resize_images==False no resizing is done here but only on the vLLM side (which uses the huggingface
+    transformers preprocessor)
     """
+
+    if not resize_images:
+        print("Deactivated resizing images on LLama-Factory end. All resizing will be done in vLLM.")
 
     check_version("vllm>=0.4.3,<=0.6.5")
     if pipeline_parallel_size > get_device_count():
@@ -145,8 +159,15 @@ def vllm_infer(
         "pipeline_parallel_size": pipeline_parallel_size,
         "disable_log_stats": True,
         "max_num_seqs": max_num_seqs,
+        # This causes a warning since the argument is also passed to the transformers ImagePreprocessor.preprocess function however it works for configuring the image preprocessor
+        # There is a bug in vllm though that allocates the wrong number of image tokens based on the updated values unfortunately so we leave it commented out.
+        # "mm_processor_kwargs": {
+        #     "min_pixels": 28 * 28,
+        #     "max_pixels": 512 * 512,
+        # },
         # "max_num_batched_tokens": max_num_batched_tokens,
         "enable_lora": model_args.adapter_name_or_path is not None,
+        "disable_mm_preprocessor_cache": True,
     }
     if template_obj.mm_plugin.__class__.__name__ != "BasePlugin":
         engine_args["limit_mm_per_prompt"] = {"image": 1, "video": 0}
@@ -168,7 +189,7 @@ def vllm_infer(
     # "Fast-forward" the dataset to the current sample
     dataset = islice(dataset_module["train_dataset"], n_processed_samples, None)
 
-    for inputs, prompts, labels in yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size):
+    for inputs, prompts, labels in yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size, resize_images):
         n_processed_samples += len(inputs)
         # vllm now only supports adding lora to language models, so all lora weights in the visual backbone are ignored
         results = llm.generate(inputs, sampling_params, lora_request=lora_request)
