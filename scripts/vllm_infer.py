@@ -85,8 +85,8 @@ def vllm_infer(
     max_num_seqs: int = 256,  # default: 256
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
-    image_resolution: int = 512 * 512,
-    resize_images: bool = False,
+    image_resolution: int = 2048 * 2048, #512 * 512,
+    resize_images: bool = True,
     chunk_size: int = 1000,
 ):
     r"""
@@ -197,6 +197,9 @@ def vllm_infer(
         with open(save_name, "a", encoding="utf-8") as f:
             for text, pred, label in zip(prompts, preds, labels):
                 f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
+                
+        #torch.cuda.empty_cache()
+        
 
     print("*" * 70)
     print(f"{n_processed_samples} generated results have been saved at {save_name}.")
