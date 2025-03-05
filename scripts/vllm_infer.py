@@ -72,7 +72,7 @@ def vllm_infer(
     dataset: str = "alpaca_en_demo",
     dataset_dir: str = "data",
     template: str = "default",
-    cutoff_len: int = 2048,
+    cutoff_len: int = 8192,
     max_samples: int = None,
     n_samples_per_input: int = 1,
     vllm_config: str = "{}",
@@ -82,7 +82,7 @@ def vllm_infer(
     top_k: int = 50,
     max_new_tokens: int = 1024,
     repetition_penalty: float = 1.0,
-    max_num_seqs: int = 256,  # default: 256
+    max_num_seqs: int = 256,  
     infer_dtype: str = "auto",
     pipeline_parallel_size: int = 1,
     image_resolution: int = 2048 * 2048, #512 * 512,

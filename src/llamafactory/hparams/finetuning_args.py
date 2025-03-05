@@ -393,6 +393,10 @@ class FinetuningArguments(
     Arguments pertaining to which techniques we are going to fine-tuning with.
     """
 
+    eval_high_res: bool = field(
+        default=False, 
+        metadata={"help": "Whether or not to evaluate in high resolution."},
+    )
     remove_optimizer_states: bool = field(
         default=False,
         metadata={"help": "Whether or not to remove all the optimizer states except for the last one."},
