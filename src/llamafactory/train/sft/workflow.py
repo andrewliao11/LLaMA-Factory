@@ -48,7 +48,8 @@ logger = get_logger(__name__)
 def is_main_process():
     return getattr(os.environ, "LOCAL_RANK", "0") == "0"
     
-
+    
+import subprocess
 from transformers import TrainerCallback
 class EvaluateCallback(TrainerCallback):
     def __init__(self, output_dir, finetuning_args):
@@ -60,12 +61,15 @@ class EvaluateCallback(TrainerCallback):
             work_dir = self.output_dir
             from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
             checkpoint_dir = os.path.join(work_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}")
-            command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res {self.finetuning_args.eval_high_res}"
+            command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res False"
             print(f"Use checkpoint: {checkpoint_dir}\nExecute: {command}")
-            #os.system(command)
-            import subprocess
             parent_env = json.load(open(os.path.join(self.output_dir, "parent_env.json")))
             subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
+            
+            #command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res True"
+            #print(f"Use checkpoint: {checkpoint_dir}\nExecute: {command}")
+            #subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
+            
             
             if self.finetuning_args.remove_optimizer_states:
                 # remove all the optimizer states (except for the last one) to save disk space

@@ -15,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import uuid
+import os
+import wandb
 from typing import TYPE_CHECKING, List, Optional
 
 from ...data import PairwiseDataCollatorWithPadding, get_dataset, get_template_and_fix_tokenizer
@@ -25,6 +28,7 @@ from ...hparams import ModelArguments
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push, create_ref_model
 from .trainer import CustomDPOTrainer
+from ..sft.workflow import EvaluateCallback
 
 
 if TYPE_CHECKING:
@@ -40,6 +44,33 @@ def run_dpo(
     finetuning_args: "FinetuningArguments",
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
+    
+    
+    print(training_args.distributed_state)
+    print(training_args.distributed_state.is_main_process)
+    if training_args.distributed_state.is_main_process and "wandb" in training_args.report_to:
+        from dataclasses import dataclass, asdict
+        p = os.path.join(training_args.output_dir, "wandb_id")
+        if os.path.exists(p):
+            unique_id = open(p).read().strip()
+        else:
+            unique_id = uuid.uuid4().hex[:8]
+            open(p, "w").write(unique_id)
+        
+        config = {}
+        if "SLURM_JOB_ID" in os.environ:
+            config["SLURM_JOB_ID"] = os.environ["SLURM_JOB_ID"]
+            
+        config.update(asdict(model_args))
+        config.update(asdict(data_args))
+        config.update(training_args.to_dict())
+        config.update(asdict(finetuning_args))
+        #config.update(asdict(generating_args))
+        wandb.init(resume="allow", id=unique_id, project=os.getenv("WANDB_PROJECT", "huggingface"), config=config, name=training_args.run_name)
+        
+    training_args.learning_rate = float(training_args.learning_rate)
+    
+    
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
@@ -65,7 +96,10 @@ def run_dpo(
 
     # Update arguments
     training_args.remove_unused_columns = False  # important for multimodal and pairwise dataset
-
+    
+    # NOTE: Add a callback to trigger evaluation job
+    callbacks.append(EvaluateCallback(training_args.output_dir, finetuning_args))
+        
     # Initialize our Trainer
     trainer = CustomDPOTrainer(
         model=model,
@@ -79,6 +113,8 @@ def run_dpo(
     )
 
     # Training
+    #print(f"Learning rate: {training_args.learning_rate} ({type(training_args.learning_rate)})")
+    
     if training_args.do_train:
         train_result = trainer.train(resume_from_checkpoint=training_args.resume_from_checkpoint)
         trainer.save_model()
