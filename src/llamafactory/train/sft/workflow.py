@@ -61,12 +61,12 @@ class EvaluateCallback(TrainerCallback):
             work_dir = self.output_dir
             from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
             checkpoint_dir = os.path.join(work_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}")
-            command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res False"
+            command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res False --keep_checkpoints {self.finetuning_args.keep_checkpoints}"
             print(f"Use checkpoint: {checkpoint_dir}\nExecute: {command}")
             parent_env = json.load(open(os.path.join(self.output_dir, "parent_env.json")))
             subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
             
-            #command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res True"
+            #command = f"python main.py evaluate_experiment {work_dir} {checkpoint_dir} --sampled_eval True --separate_eval True --eval_high_res True --keep_checkpoints {self.finetuning_args.keep_checkpoints}"
             #print(f"Use checkpoint: {checkpoint_dir}\nExecute: {command}")
             #subprocess.run(command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=parent_env)
             

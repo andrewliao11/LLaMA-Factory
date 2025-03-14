@@ -397,6 +397,10 @@ class FinetuningArguments(
         default=False, 
         metadata={"help": "Whether or not to evaluate in high resolution."},
     )
+    keep_checkpoints: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to keep all the checkpoints."},
+    )
     remove_optimizer_states: bool = field(
         default=False,
         metadata={"help": "Whether or not to remove all the optimizer states except for the last one."},
