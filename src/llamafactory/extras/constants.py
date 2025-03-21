@@ -59,6 +59,7 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "reflection_data_gen/docci_dpo_cot_dataset_info.json"), 
     str(PROJECT_ROOT / "reflection_data_gen/docci_rewrite_mcq_cot_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/vl_thinking_bench_dataset_info.json"),
+    str(PROJECT_ROOT / "gqa_data_gen/full_mme_real_world_dataset_info.json"),
 ]
 
 DEFAULT_TEMPLATE = defaultdict(str)
