@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 from itertools import islice
 from pathlib import Path
 
@@ -22,12 +23,14 @@ from tqdm import tqdm
 from transformers import Seq2SeqTrainingArguments
 
 from llamafactory.data import get_dataset, get_template_and_fix_tokenizer
-from llamafactory.extras.constants import IGNORE_INDEX
+from llamafactory.extras.constants import IGNORE_INDEX, PROJECT_ROOT
 from llamafactory.extras.misc import check_version, get_device_count
 from llamafactory.extras.packages import is_vllm_available
 from llamafactory.hparams import get_infer_args
 from llamafactory.model import load_tokenizer
 
+
+_logger = logging.getLogger(__name__)
 
 if is_vllm_available():
     from vllm import LLM, SamplingParams
@@ -62,6 +65,14 @@ def yield_chunks(dataset, template_obj, tokenizer, image_resolution, chunk_size,
 
     if inputs:
         yield inputs, prompts, labels
+
+
+def get_hash(string: object) -> str:
+    import hashlib
+    sha = hashlib.md5()
+    sha.update(str(hash(string)).encode())
+    return sha.hexdigest()
+
 
 
 # Qwen 2.5 default setup
@@ -126,12 +137,22 @@ def vllm_infer(
         )
     )
 
+    # Make the data_args hashable
+    if isinstance(data_args.dataset, list):
+        data_args.dataset = tuple(data_args.dataset)
+
+    data_args.tokenized_path = PROJECT_ROOT / "outputs" / "tokenized_path" / get_hash(data_args)
+
     training_args = Seq2SeqTrainingArguments(output_dir="dummy_dir")
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template_obj = get_template_and_fix_tokenizer(tokenizer, data_args)
     template_obj.mm_plugin.expand_mm_tokens = False  # for vllm generate
-    dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
+    try:
+        dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
+    except SystemExit:
+        _logger.info("Finished tokenizing dataset. Re-running to load the tokenized version.")
+        dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
 
     sampling_params = SamplingParams(
         n=n_samples_per_input,
