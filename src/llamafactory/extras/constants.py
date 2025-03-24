@@ -52,6 +52,7 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "gqa_data_gen/mmvp_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/natural_bench_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/text_only_gqa_dataset_info.json"),
+    str(PROJECT_ROOT / "gqa_data_gen/virgo_dataset_info.json"),
     str(PROJECT_ROOT / "docci_data_gen/docci_mcq_dataset_info.json"),
     str(PROJECT_ROOT / "docci_data_gen/docci_llm_mcq_dataset_info.json"),
     str(PROJECT_ROOT / "reflection_data_gen/docci_mcq_cot_dataset_info.json"),
@@ -60,6 +61,7 @@ EXTRA_DATA_CONFIG = [
     str(PROJECT_ROOT / "reflection_data_gen/docci_rewrite_mcq_cot_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/vl_thinking_bench_dataset_info.json"),
     str(PROJECT_ROOT / "gqa_data_gen/full_mme_real_world_dataset_info.json"),
+    str(PROJECT_ROOT / "gqa_data_gen/mmlu-pro_dataset_info.json"),
 ]
 
 DEFAULT_TEMPLATE = defaultdict(str)
