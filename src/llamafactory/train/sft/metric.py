@@ -183,7 +183,9 @@ class ComputeMetricsVQA:
             return "mcq"
         elif "mmvp" in data_source:
             return "mcq"
-        else: 
+        elif "mmlu-pro" in data_source:
+            return "mcq"
+        else:
             raise NotImplementedError(f"Unknown data source: {data_source}")
         
     def _dump(self) -> Optional[Dict[str, float]]:
