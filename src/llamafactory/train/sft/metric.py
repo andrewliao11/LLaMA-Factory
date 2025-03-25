@@ -133,28 +133,41 @@ def extract_vqa(text):
         
     return text.lower()
 
+from functools import cache
+
+
+@cache
+def answer_regex():
+    return re.compile(r"(.*?)<answer>(.*?)</answer>(.*?)")
+
+
+@cache
+def parentheses_regex():
+    return re.compile(r"(.*?)\((\w)\)(.*?)")
+
+
 def extract_mcq(text):
     # Extact "ldafjdlasj <answer> my_answer </answer> dfadlfal" -> "my_answer"
-    if (res := re.search(r"(.*?)<answer>(.*?)</answer>(.*?)", text)) is not None: 
+    if (res := answer_regex().search(text)) is not None:
         text = res.group(2).strip()
-        
+
     # Extract first element in braces, e.g., "fdasf (A ) dlafsd (b)" -> "a"
-    for pattern, grp_ind in [
-        (r"(.*?)\((\w)\)(.*?)", 2), 
-        # (r"(.*?)(\w)\.(.*?)", 2), 
-        #(r"<answer>(.*?)(\w).</answer>", 2), 
+    for regex, grp_ind in [
+        (parentheses_regex(), 2),
+        # (r"(.*?)(\w)\.(.*?)", 2),
+        # (r"<answer>(.*?)(\w).</answer>", 2),
         # (r"(.*?)", 1)]: #[r'\\boxed\{(.*?)\}'
-        ]:
-        res = re.search(pattern, text)
+    ]:
+        res = regex.search(text)
         if res is not None:
             res = res.group(grp_ind).strip().lower()
-            
+
             if res.endswith("."):
                 res = res[:-1]
             if res.endswith(")") and res.startswith("("):
                 res = res[1:-1]
             return res
-        
+
     return text.lower()
 
 @dataclass
