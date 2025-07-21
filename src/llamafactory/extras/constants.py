@@ -36,6 +36,7 @@ CHECKPOINT_NAMES = {
 CHOICES = ["A", "B", "C", "D"]
 
 DATA_CONFIG = "dataset_info.json"
+CUSTOM_DATA_CONFIG = set()
 
 DEFAULT_TEMPLATE = defaultdict(str)
 
@@ -135,6 +136,11 @@ class RopeScaling(str, Enum):
     LLAMA3 = "llama3"
 
 
+def register_custom_data_config(path):
+    for p in path.split(";"):
+        CUSTOM_DATA_CONFIG.add(p)
+        
+    
 def register_model_group(
     models: dict[str, dict[DownloadSource, str]],
     template: Optional[str] = None,

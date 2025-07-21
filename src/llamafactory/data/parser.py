@@ -19,7 +19,7 @@ from typing import Any, Literal, Optional
 
 from huggingface_hub import hf_hub_download
 
-from ..extras.constants import DATA_CONFIG
+from ..extras.constants import DATA_CONFIG, CUSTOM_DATA_CONFIG
 from ..extras.misc import use_modelscope, use_openmind
 
 
@@ -91,7 +91,7 @@ class DatasetAttr:
 
 
 def get_dataset_list(dataset_names: Optional[list[str]], dataset_dir: str) -> list["DatasetAttr"]:
-    r"""Get the attributes of the datasets."""
+    r"""Get the attributes of the datasets.CUSTOM_DATA_CONFIG"""
     if dataset_names is None:
         dataset_names = []
 
@@ -103,14 +103,28 @@ def get_dataset_list(dataset_names: Optional[list[str]], dataset_dir: str) -> li
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
 
-        try:
-            with open(config_path) as f:
-                dataset_info = json.load(f)
-        except Exception as err:
-            if len(dataset_names) != 0:
-                raise ValueError(f"Cannot open {config_path} due to {str(err)}.")
 
-            dataset_info = None
+        config_path_list = [config_path]
+        if CUSTOM_DATA_CONFIG is not None:
+            if isinstance(CUSTOM_DATA_CONFIG, str):
+                config_path_list.append(CUSTOM_DATA_CONFIG)
+            elif isinstance(CUSTOM_DATA_CONFIG, list) or isinstance(CUSTOM_DATA_CONFIG, set):
+                for custom_config_path in CUSTOM_DATA_CONFIG:
+                    config_path_list.append(custom_config_path)
+
+        dataset_info = {}
+        for config_path in config_path_list:
+            try:
+                with open(config_path) as f:
+                    dataset_info.update(json.load(f))
+                    
+            except Exception as err:
+                if len(dataset_names) != 0:
+                    raise ValueError(f"Cannot open {config_path} due to {str(err)}.")
+
+                dataset_info = None
+            
+    
 
     dataset_list: list[DatasetAttr] = []
     for name in dataset_names:
@@ -121,7 +135,7 @@ def get_dataset_list(dataset_names: Optional[list[str]], dataset_dir: str) -> li
             continue
 
         if name not in dataset_info:
-            raise ValueError(f"Undefined dataset {name} in {DATA_CONFIG}.")
+            raise ValueError(f"Undefined dataset {name} in {DATA_CONFIG} or {CUSTOM_DATA_CONFIG}.")
 
         has_hf_url = "hf_hub_url" in dataset_info[name]
         has_ms_url = "ms_hub_url" in dataset_info[name]
