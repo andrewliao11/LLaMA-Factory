@@ -23,6 +23,15 @@ from typing import Any, Literal, Optional
 class DataArguments:
     r"""Arguments pertaining to what data we are going to input our model for training and evaluation."""
 
+    custom_dataset_info_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Path to a custom dataset info file. "
+                "If specified, it will register custom datasets from the specified dataset info."
+            )
+        },
+    )
     template: Optional[str] = field(
         default=None,
         metadata={"help": "Which template to use for constructing prompts in training and inference."},

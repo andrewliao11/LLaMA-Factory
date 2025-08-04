@@ -65,6 +65,13 @@ def _training_function(config: dict[str, Any]) -> None:
         callbacks.append(EarlyStoppingCallback(early_stopping_patience=finetuning_args.early_stopping_steps))
 
     callbacks.append(ReporterCallback(model_args, data_args, finetuning_args, generating_args))  # add to last
+    
+    # NOTE: add custom dataset
+    from llamafactory.extras.constants import register_custom_data_config
+    
+    if data_args.custom_dataset_info_path is not None:
+        from pathlib import Path
+        register_custom_data_config(str(Path(data_args.custom_dataset_info_path).absolute()))
 
     if finetuning_args.stage == "pt":
         run_pt(model_args, data_args, training_args, finetuning_args, callbacks)
